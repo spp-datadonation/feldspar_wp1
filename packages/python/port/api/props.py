@@ -9,10 +9,12 @@ class Translations(TypedDict):
 
     Attributes:
         en: English string to display
+        de: German string to display
         nl: Dutch string to display
     """
 
     en: str
+    de: str
     nl: str
 
 

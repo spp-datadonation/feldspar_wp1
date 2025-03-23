@@ -108,6 +108,8 @@ function installPortPackage() {
   console.log("[ProcessingWorker] load port package");
   return self.pyodide.runPythonAsync(`
     import micropip
+    await micropip.install("opencv-python")
+    await micropip.install("Pillow")
     await micropip.install("./port-0.0.0-py3-none-any.whl", deps=False)
     import port
   `);

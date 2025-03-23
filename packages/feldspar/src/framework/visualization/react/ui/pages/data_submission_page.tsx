@@ -31,12 +31,19 @@ export const DataSubmissionPage = (props: Props): JSX.Element => {
   }
 
   function renderBodyItem(bodyItem: any, context: PromptContext): JSX.Element | null {
+    console.log("Body item to render:", bodyItem);
+    console.log("Body item __type__:", bodyItem.__type__);
+    console.log("Context:", context);
+
     for (const factory of promptFactories) {
       const element = factory.create(bodyItem, context);
+      console.log("Trying factory:", factory.constructor.name);
       if (element !== null) {
+        console.log("Found matching factory:", factory.constructor.name);
         return element;
       }
     }
+    console.log("No factory found for body item");
     return null;
   }
 
@@ -44,9 +51,13 @@ export const DataSubmissionPage = (props: Props): JSX.Element => {
     const context = { locale: locale, resolve: props.resolve, onDataSubmissionDataChanged, onDonate};
     const bodyItems = Array.isArray(props.body) ? props.body : [props.body];
 
+    console.log("Number of body items:", bodyItems.length);
+
     return bodyItems.map((item, index) => {
+      console.log(`Processing body item at index ${index}:`, item);
       const element = renderBodyItem(item, context);
       if (element === null) {
+        console.error(`No factory found for body item at index ${index}:`, item);
         throw new TypeError(`No factory found for body item at index ${index}`);
       }
       return <React.Fragment key={index}>{element}</React.Fragment>;
