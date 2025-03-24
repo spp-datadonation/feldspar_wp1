@@ -13,6 +13,15 @@ extraction_dict = {
             "nl": "Hoeveel video's heb je per dag bekeken?",
         },
     },
+    "comments": {
+        "extraction_function": ef.extract_comments,
+        "patterns": ["Kommentare.csv", "comments.csv"],
+        "title": {
+            "en": "How many comments have you made per day?",
+            "de": "Wie viele Kommentare haben Sie pro Tag geschrieben?",
+            "nl": "Hoeveel reacties heb je per dag geplaatst?",
+        },
+    },
     "subscriptions": {
         "extraction_function": ef.extract_subscriptions,
         "patterns": ["Abos.csv", "subscriptions.csv"],
@@ -20,6 +29,15 @@ extraction_dict = {
             "en": "Which channels are you subscribed to?",
             "de": "Welche Kanäle haben Sie abonniert?",
             "nl": "Op welke kanalen ben je geabonneerd?",
+        },
+    },
+    "search_history": {
+        "extraction_function": ef.extract_search_history,
+        "patterns": ["Suchverlauf.json", "search-history.json"],
+        "title": {
+            "en": "How many searches have you performed per day?",
+            "de": "Wie viele Suchen haben Sie pro Tag durchgeführt?",
+            "nl": "Hoeveel zoekopdrachten heb je per dag uitgevoerd?",
         },
     },
 }
