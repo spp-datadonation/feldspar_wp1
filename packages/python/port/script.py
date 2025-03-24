@@ -42,7 +42,7 @@ def process(sessionId):
 
         # Allow users to only upload zip-files and render file-input page
         promptFile = prompt_file("application/zip")
-        fileResult = yield render_donation_page(promptFile)
+        fileResult = yield render_donation_page(promptFile, platform="")
 
         # If user input
         if fileResult.__type__ == "PayloadString":
@@ -67,7 +67,7 @@ def process(sessionId):
                     ("debug", f"{key}: unknown platform, cannot process file")
                 )
                 retry_result = yield render_donation_page(
-                    retry_confirmation_unknown_platform()
+                    retry_confirmation_unknown_platform(), platform=""
                 )
                 if retry_result.__type__ == "PayloadTrue":
                     meta_data.append(("debug", f"{key}: retry prompt file"))
@@ -100,7 +100,9 @@ def process(sessionId):
                 )
                 break
 
-            elif check_ddp == "invalid_no_json":
+            elif (
+                check_ddp == "invalid_no_json"
+            ):  # for linkedin: checks basic vs. complete DDP
                 meta_data.append(
                     (
                         "debug",
@@ -222,19 +224,19 @@ def check_if_valid_instagram_ddp(filename):
                 if folder_name_check_ddp in file_info.filename:
                     found_folder_name_check_ddp = True
 
-                elif file_name_check_html in file_info.filename:
+                if file_name_check_html in file_info.filename:
                     found_file_name_check_html = True
 
             if found_folder_name_check_ddp:
                 if found_file_name_check_html:
                     print(
-                        f"Folder '{folder_name_check_ddp}' found and file {file_name_check_html} found in the ZIP file. Seems like a Instagram HTML DDP."
+                        f"Folder '{folder_name_check_ddp}' found and file '{file_name_check_html}' found in the ZIP file. Seems like a Instagram HTML DDP."
                     )
                     return "invalid_no_json"
 
                 else:
                     print(
-                        f"Folder '{folder_name_check_ddp}' found and file {file_name_check_html} not found in the ZIP file. Seems like a real Instagram JSON DDP."
+                        f"Folder '{folder_name_check_ddp}' found and file '{file_name_check_html}' not found in the ZIP file. Seems like a real Instagram JSON DDP."
                     )
                     return "valid"
 
@@ -253,27 +255,38 @@ def check_if_valid_instagram_ddp(filename):
         return "invalid_file_error"
 
 
-def check_if_valid_youtube_ddp(filename):
-    """Check if the uploaded file is a valid YouTube data download package"""
-    folder_name_check_ddp = "YouTube und YouTube Music"
+def check_if_valid_linkedin_ddp(filename):
+    """Check if the uploaded file is a valid LinkedIn data download package"""
+    file_name_check_ddp = "Profile.csv"
+    ddp_name_check_complete = "Complete_LinkedInDataExport"
+
+    if ddp_name_check_complete in filename:
+        found_ddp_name_check_complete = True
 
     try:
         with zipfile.ZipFile(filename, "r") as zip_ref:
-            found_folder_name_check_ddp = False
+            found_file_name_check_ddp = False
+            found_ddp_name_check_complete = False
 
             for file_info in zip_ref.infolist():
-                if folder_name_check_ddp in file_info.filename:
-                    found_folder_name_check_ddp = True
-                    break
+                if file_name_check_ddp in file_info.filename:
+                    found_file_name_check_ddp = True
 
-            if found_folder_name_check_ddp:
-                print(
-                    f"Folder '{folder_name_check_ddp}' found in the ZIP file. Seems like a valid YouTube DDP."
-                )
-                return "valid"
+            if found_file_name_check_ddp:
+                if found_ddp_name_check_complete:
+                    print(
+                        f"Folder '{file_name_check_ddp}' found and ZIP file with '{ddp_name_check_complete}'. Seems like a real Complete LinkedIn DDP."
+                    )
+                    return "valid"
+                else:
+                    print(
+                        f"Folder '{file_name_check_ddp}' found but ZIP file does not start with '{ddp_name_check_complete}'. Seems like a Basic LinkedIn DDP."
+                    )
+                    return "invalid_no_json"
+
             else:
                 print(
-                    f"Folder '{folder_name_check_ddp}' not found. Does not seem like a YouTube DDP."
+                    f"Folder '{file_name_check_ddp}' not found. Does not seem like an LinkedIn DDP."
                 )
                 return "invalid_no_ddp"
 
@@ -286,26 +299,52 @@ def check_if_valid_youtube_ddp(filename):
         return "invalid_file_error"
 
 
-def check_if_valid_linkedin_ddp(filename):
-    """Check if the uploaded file is a valid LinkedIn data download package"""
-    file_checks = ["Profile.csv", "Connections.csv"]  # Common LinkedIn export files
+def check_if_valid_youtube_ddp(filename):
+    """Check if the uploaded file is a valid YouTube data download package"""
+    folder_name_check_ddp = [
+        "YouTube und YouTube Music",
+        "YouTube and YouTube Music",
+    ]  # language sensitive
+    file_name_check_html = [
+        "Wiedergabeverlauf.html",
+        "watch-history.html",
+    ]  # language sensitive
 
     try:
         with zipfile.ZipFile(filename, "r") as zip_ref:
-            found_any_file = False
+            found_folder_name_check_ddp = False
+            found_file_name_check_html = False
 
             for file_info in zip_ref.infolist():
-                if any(check_file in file_info.filename for check_file in file_checks):
-                    found_any_file = True
-                    break
+                if any(
+                    folder_name in file_info.filename
+                    for folder_name in folder_name_check_ddp
+                ):
+                    found_folder_name_check_ddp = True
 
-            if found_any_file:
-                print(
-                    f"LinkedIn files found in the ZIP file. Seems like a valid LinkedIn DDP."
-                )
-                return "valid"
+                if any(
+                    file_name in file_info.filename
+                    for file_name in file_name_check_html
+                ):
+                    found_file_name_check_html = True
+
+            if found_folder_name_check_ddp:
+                if found_file_name_check_html:
+                    print(
+                        f"Folder '{folder_name_check_ddp}' found and file '{file_name_check_html}' found in the ZIP file. Seems like a YouTube HTML DDP."
+                    )
+                    return "invalid_no_json"
+
+                else:
+                    print(
+                        f"Folder '{folder_name_check_ddp}' found and file '{file_name_check_html}' not found in the ZIP file. Seems like a real YouTube JSON DDP."
+                    )
+                    return "valid"
+
             else:
-                print(f"LinkedIn files not found. Does not seem like a LinkedIn DDP.")
+                print(
+                    f"Folder '{folder_name_check_ddp}' not found. Does not seem like an YouTube DDP."
+                )
                 return "invalid_no_ddp"
 
     except zipfile.BadZipFile:
@@ -333,36 +372,43 @@ def extract_data(filename, locale, platform):
     data = []
 
     # Determine which extraction dictionary to use based on platform
-    if platform.lower() == "instagram":
+    if platform == "instagram":
         extraction_dict = instagram_extraction_dict
         platform_name = "Instagram"
-    elif platform.lower() == "linkedin":
+    elif platform == "linkedin":
         extraction_dict = linkedin_extraction_dict
         platform_name = "LinkedIn"
-    elif platform.lower() == "youtube":
+    elif platform == "youtube":
         extraction_dict = youtube_extraction_dict
         platform_name = "YouTube"
 
-    for index, (file, v) in enumerate(extraction_dict.items(), start=1):
+    for index, (file, entry) in enumerate(extraction_dict.items(), start=1):
+        # Get list of possible file names (sometimes language sensitive)
+        patterns = entry.get("patterns", [file])
+
         # Extract content based on platform
-        if platform.lower() == "instagram":
-            file_content = extractInstagramContentFromZipFolder(filename, file)
-        elif platform.lower() == "linkedin":
-            file_content = extractLinkedInContentFromZipFolder(filename, file)
-        elif platform.lower() == "youtube":
-            file_content = extractYouTubeContentFromZipFolder(filename, file)
-        else:
-            file_content = None
+        if platform == "instagram":
+            file_content, matched_pattern = extract_instagram_content_from_zip_folder(
+                filename, patterns
+            )
+        elif platform == "linkedin":
+            file_content, matched_pattern = extract_linkedin_content_from_zip_folder(
+                filename, patterns
+            )
+        elif platform == "youtube":
+            file_content, matched_pattern = extract_youtube_content_from_zip_folder(
+                filename, patterns
+            )
 
         if file_content is not None:
             try:
                 # Call the extraction function with content
-                file_df = v["extraction_function"](file_content, locale)
+                file_df = entry["extraction_function"](file_content, locale)
             except Exception as e:
                 # If extraction fails
                 translatedMessage = props.Translatable(
                     {
-                        "en": "extraction failed - ",
+                        "en": "Extraction failed - ",
                         "de": "Extrahierung fehlgeschlagen - ",
                         "nl": "Extractie mislukt - ",
                     }
@@ -370,16 +416,16 @@ def extract_data(filename, locale, platform):
 
                 file_df = pd.DataFrame(
                     [
-                        f"{translatedMessage.translations[locale]}{file, type(e).__name__}"
+                        f"{translatedMessage.translations[locale]}{file, type(e).__name__}: {matched_pattern}"
                     ],
                     columns=[str(file)],
                 )
         else:
             translatedMessage1 = props.Translatable(
                 {
-                    "en": f'(file "{str(file)}" missing)',
+                    "en": f'(File "{str(file)}" missing)',
                     "de": f'(Datei "{str(file)}" fehlt)',
-                    "nl": f'(bestand "{str(file)}" ontbreekt)',
+                    "nl": f'(Bestand "{str(file)}" ontbreekt)',
                 }
             )
 
@@ -424,37 +470,37 @@ def extract_data(filename, locale, platform):
     yield f"{translatedMessage.translations[locale]}", 100, data
 
 
-def extractInstagramContentFromZipFolder(zip_file_path, pattern):
+def extract_instagram_content_from_zip_folder(zip_file_path, patterns):
     """Extract JSON content from Instagram data export zip file based on pattern"""
-    with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
-        # Get the list of file names in the zip file
-        file_names = zip_ref.namelist()
+    try:
+        with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
+            # Get the list of file names in the zip file
+            file_names = zip_ref.namelist()
 
-        file_json_dict = {}
+            # Look for matching files
+            for pattern in patterns:
+                for file_name in file_names:
+                    if file_name.endswith(".json") and pattern in file_name:
+                        try:
+                            # Read the JSON file
+                            with zip_ref.open(file_name) as json_file:
+                                json_content = json_file.read()
+                                data = json.loads(json_content)
+                                return data, pattern
+                        except Exception as e:
+                            print(f"Error reading file {file_name}: {e}")
+                            continue  # Try the next matching file if there's an error
 
-        for file_name in file_names:
-            if (file_name.endswith(".json")) and (pattern in file_name):
-                try:
-                    # Read the JSON file into a dictionary
-                    with zip_ref.open(file_name) as json_file:
-                        json_content = json_file.read()
-                        data = json.loads(json_content)
-                        file_json_dict[file_name] = data
+            # If we've checked all files and found no match
+            print(f"No file matching pattern '{patterns}' found")
+            return None, None
 
-                    break
-
-                except:
-                    return None
-
-            # checks if loop is at last item
-            if file_name == file_names[-1]:
-                print(f"File {pattern}.json does not exist")
-                return None
-
-    return file_json_dict[file_name]
+    except Exception as e:
+        print(f"Error extracting Instagram content: {e}")
+        return None, None
 
 
-def extractLinkedInContentFromZipFolder(zip_file_path, exact_filename):
+def extract_linkedin_content_from_zip_folder(zip_file_path, patterns):
     """
     Extract content from LinkedIn data export zip file using exact filenames
     """
@@ -463,61 +509,59 @@ def extractLinkedInContentFromZipFolder(zip_file_path, exact_filename):
             # Get the list of file names in the zip file
             file_names = zip_ref.namelist()
 
-            # Check for exact match
-            if exact_filename in file_names:
-                file_path = exact_filename
-            else:
-                # Try to find the file in any directory
-                matching_files = [
-                    f for f in file_names if f.endswith("/" + exact_filename)
-                ]
-                if not matching_files:
-                    print(f"No file found with name: {exact_filename}")
-                    return None
-                file_path = matching_files[0]
+            # Look for matching files
+            for pattern in patterns:
+                for file_name in file_names:
+                    if file_name.endswith(".csv") and pattern in file_name:
+                        try:
+                            # Read the CSV
+                            with zip_ref.open(file_name) as csv_file:
+                                # Handle notes section in LinkedIn CSV files
+                                peek = csv_file.read(50).decode(
+                                    "utf-8", errors="ignore"
+                                )
+                                csv_file.seek(0)
 
-            # Process CSV file
-            if file_path.endswith(".csv"):
-                try:
-                    with zip_ref.open(file_path) as csv_file:
-                        # Skip the first line if it's a note
-                        peek = csv_file.read(50).decode("utf-8", errors="ignore")
-                        csv_file.seek(0)
+                                if "Notes:" in peek:
+                                    # Skip notes lines until we find the header
+                                    lines = []
+                                    for line in csv_file:
+                                        decoded = line.decode("utf-8", errors="ignore")
+                                        if (
+                                            "First Name" in decoded
+                                            or "Email" in decoded
+                                        ):
+                                            lines.append(decoded)
+                                            break
 
-                        if "Notes:" in peek:
-                            # Skip notes lines until we find the header
-                            lines = []
-                            for line in csv_file:
-                                decoded = line.decode("utf-8", errors="ignore")
-                                if "First Name" in decoded or "Email" in decoded:
-                                    lines.append(decoded)
-                                    break
+                                    # Read the rest of the file
+                                    for line in csv_file:
+                                        lines.append(
+                                            line.decode("utf-8", errors="ignore")
+                                        )
 
-                            # Read the rest of the file
-                            for line in csv_file:
-                                lines.append(line.decode("utf-8", errors="ignore"))
+                                    # Create CSV from cleaned data
+                                    from io import StringIO
 
-                            # Create CSV from cleaned data
-                            from io import StringIO
+                                    csv_data = StringIO("".join(lines))
+                                    return pd.read_csv(csv_data), pattern
+                                else:
+                                    # No notes, read directly
+                                    return pd.read_csv(csv_file), pattern
+                        except Exception as e:
+                            print(f"Error reading file {file_name}: {e}")
+                            continue  # Try the next matching file if there's an error
 
-                            csv_data = StringIO("".join(lines))
-                            return pd.read_csv(csv_data)
-                        else:
-                            # No notes, read directly
-                            return pd.read_csv(csv_file)
-
-                except Exception as e:
-                    print(f"Error reading CSV file {exact_filename}: {e}")
-                    return pd.DataFrame()
-
-            return None
+            # If we've checked all files and found no match
+            print(f"No file matching pattern '{patterns}' found")
+            return None, None
 
     except Exception as e:
         print(f"Error extracting LinkedIn content: {e}")
-        return None
+        return None, None
 
 
-def extractYouTubeContentFromZipFolder(zip_file_path, exact_filename):
+def extract_youtube_content_from_zip_folder(zip_file_path, patterns):
     """
     Extract content from YouTube data export zip file using exact filenames
     """
@@ -526,58 +570,65 @@ def extractYouTubeContentFromZipFolder(zip_file_path, exact_filename):
             # Get the list of file names in the zip file
             file_names = zip_ref.namelist()
 
-            # Look for the exact filename in any directory
-            matching_files = [f for f in file_names if f.endswith(exact_filename)]
+            # Look for matching files
+            for pattern in patterns:
+                for file_name in file_names:
+                    if pattern in file_name:
+                        try:
+                            # Process based on file extension
+                            if file_name.endswith(".json"):
+                                with zip_ref.open(file_name) as json_file:
+                                    json_content = json_file.read()
+                                    return json.loads(json_content), pattern
+                            elif file_name.endswith(".csv"):
+                                with zip_ref.open(file_name) as csv_file:
+                                    return pd.read_csv(csv_file), pattern
+                        except Exception as e:
+                            print(f"Error reading file {file_name}: {e}")
+                            continue  # Try the next matching file if there's an error
 
-            if not matching_files:
-                print(f"No file found with name: {exact_filename}")
-                return None
-
-            # Use the first matching file
-            file_path = matching_files[0]
-
-            # Process based on file extension
-            if file_path.endswith(".json"):
-                with zip_ref.open(file_path) as json_file:
-                    json_content = json_file.read()
-                    return json.loads(json_content)
-            elif file_path.endswith(".csv"):
-                with zip_ref.open(file_path) as csv_file:
-                    return pd.read_csv(csv_file)
-
-            return None
+            # If we've checked all files and found no match
+            print(f"No file matching pattern '{patterns}' found")
+            return None, None
 
     except Exception as e:
         print(f"Error extracting YouTube content: {e}")
-        return None
+        return None, None
 
 
 ############################
 # Render pages used in step 1
 ############################
 
+# Define here for nicer capitalization
+platform_names = {
+    "instagram": "Instagram",
+    "linkedin": "LinkedIn",
+    "youtube": "YouTube",
+}
+
 
 def prompt_file(extensions):
     description = props.Translatable(
         {
-            "en": 'Please select your data export file from Instagram, LinkedIn, or YouTube. The file should be a ZIP file.\nFor Instagram, the file should be named like "instagram-username-date-random_combination.zip".\nFor LinkedIn, export your data from the LinkedIn privacy settings.\nFor YouTube, download your data from Google Takeout.\nThe data processing can take up to a minute. Please do NOT reload the page during this process.',
-            "de": 'Wählen Sie Ihre heruntergeladene Datei von Instagram, LinkedIn oder YouTube aus. Die Datei sollte eine ZIP-Datei sein.\nFür Instagram sollte die Datei etwa so heißen: "instagram-ihr_nutzername-datum-zufallskombination.zip".\nFür LinkedIn exportieren Sie Ihre Daten aus den LinkedIn-Datenschutzeinstellungen.\nFür YouTube laden Sie Ihre Daten über Google Takeout herunter.',
-            "nl": "Selecteer een zip-bestand van Instagram, LinkedIn of YouTube die u heeft opgeslagen op uw apparaat. De gegevensverwerking kan tot een minuut duren. Laad de pagina tijdens dit proces NIET opnieuw.",
+            "en": "Please select your data export file. The file should be a ZIP file.",
+            "de": "Wählen Sie Ihre heruntergeladene Datei. Die Datei sollte eine ZIP-Datei sein.",
+            "nl": "Selecteer een zip-bestand.",
         }
     )
 
     return props.PropsUIPromptFileInput(description, extensions)
 
 
-def render_donation_page(body, platform="Instagram"):
+def render_donation_page(body, platform):
     # Use platform name (default to Instagram if not specified)
 
     header = props.PropsUIHeader(
         props.Translatable(
             {
-                "en": f"Your {platform} Data Donation",
-                "de": f"Ihre {platform} Datenspende",
-                "nl": f"{platform} Data Donation",
+                "en": f"Your {platform_names.get(platform, platform)} Data Donation",
+                "de": f"Ihre {platform_names.get(platform, platform)} Datenspende",
+                "nl": f"{platform_names.get(platform, platform)} Data Donation",
             }
         )
     )
@@ -586,19 +637,36 @@ def render_donation_page(body, platform="Instagram"):
     return CommandUIRender(page)
 
 
-def retry_confirmation_no_json(platform="Instagram"):
-    text = props.Translatable(
-        {
-            "en": f'Unfortunately, we cannot process your file. It seems like you submitted a HTML file of your {platform} data.\nPlease download your data from {platform} again and select the data format "JSON".',
-            "de": f'Leider können wir Ihre Datei nicht verarbeiten. Es scheint so, dass Sie aus Versehen die HTML-Version Ihrer {platform}-Daten beantragt haben.\nBitte beantragen Sie erneut eine Datenspende bei {platform} und wählen Sie dabei "JSON" als Dateivormat aus (wie in der Anleitung beschrieben).',
-            "nl": f"Helaas, kunnen we uw bestand niet verwerken. Het lijkt erop dat u een HTML-bestand van uw {platform}-gegevens heeft ingediend.\nDownload uw gegevens opnieuw van {platform} en selecteer het gegevensformaat 'JSON'.",
-        }
-    )
+def retry_confirmation_no_json(platform):
+    if platform == "instagram":
+        text = props.Translatable(
+            {
+                "en": 'Unfortunately, we cannot process your file. It seems like you submitted a HTML file of your Instagram data.\nPlease download your data from Instagram again and select the data format "JSON".',
+                "de": 'Leider können wir Ihre Datei nicht verarbeiten. Es scheint so, dass Sie aus Versehen die HTML-Version Ihrer Instagram-Daten beantragt haben.\nBitte beantragen Sie erneut eine Datenspende bei Instagram und wählen Sie dabei "JSON" als Dateivormat aus (wie in der Anleitung beschrieben).',
+                "nl": 'Helaas, kunnen we uw bestand niet verwerken. Het lijkt erop dat u een HTML-bestand van uw Instagram-gegevens heeft ingediend.\nDownload uw gegevens opnieuw van Instagram en selecteer het gegevensformaat "JSON".',
+            }
+        )
+    elif platform == "linkedin":
+        text = props.Translatable(
+            {
+                "en": "It seems that you have uploaded the incomplete data package that you received from LinkedIn after just 10 minutes. For this data donation, we kindly ask you to provide us with the data package that you normally receive after 24 hours. Please upload this complete data package.",
+                "de": "Es scheint als haben Sie das unvollständige Datenpaket hochgeladen, dass Sie von LinkedIn bereits nach 10 Minuten bekommen haben. Für diese Datenspende bitten Sie wir uns das Datenpaket zu spenden, dass Sie normalerweise nach 24 Stunden erhalten.\nBitte laden Sie dieses vollständige Datenpaket noch.",
+                "nl": "Het lijkt erop dat u het onvolledige datapakket heeft geüpload dat u van LinkedIn al na 10 minuten heeft ontvangen. Voor deze datadonatie vragen wij u vriendelijk om ons het datapakket te doneren dat u normaal gesproken na 24 uur ontvangt. Gelieve dit volledige datapakket te uploaden.",
+            }
+        )
+    elif platform == "youtube":
+        text = props.Translatable(
+            {
+                "en": 'Unfortunately, we cannot process your file. It seems that you accidentally requested the HTML version of your YouTube data. Please request a data donation from YouTube again and select "JSON" as the file format for the watch history (as described in the instructions).',
+                "de": 'Leider können wir Ihre Datei nicht verarbeiten. Es scheint so, dass Sie aus Versehen die HTML-Version Ihrer YouTube-Daten beantragt haben.\nBitte beantragen Sie erneut eine Datenspende bei YouTube und wählen Sie dabei "JSON" als Dateivormat für den Wiedergabeverlauf aus (wie in der Anleitung beschrieben).',
+                "nl": 'Het spijt ons, maar we kunnen uw bestand niet verwerken. Het lijkt erop dat u per ongeluk de HTML-versie van uw YouTube-gegevens heeft aangevraagd. Vraag alstublieft opnieuw een datadonatie aan bij YouTube en kies "JSON" als bestandsformaat voor de kijkgeschiedenis (zoals in de instructies beschreven).',
+            }
+        )
 
     ok = props.Translatable(
         {
-            "en": "Try again with JSON file",
-            "de": "Erneut versuchen mit JSON-Datei",
+            "en": "Try again with correct file",
+            "de": "Erneut versuchen mit richtigen Daten",
             "nl": "Probeer opnieuw",
         }
     )
@@ -606,12 +674,12 @@ def retry_confirmation_no_json(platform="Instagram"):
     return props.PropsUIPromptConfirm(text, ok)
 
 
-def retry_confirmation_no_ddp(platform="Instagram"):
+def retry_confirmation_no_ddp(platform):
     text = props.Translatable(
         {
-            "en": f"Unfortunately, we cannot process your file. Did you really select your downloaded {platform} ZIP file?",
-            "de": f"Leider können wir Ihre Datei nicht verarbeiten. Haben Sie wirklich Ihre {platform}-Daten ausgewählt?",
-            "nl": f"Helaas, kunnen we uw bestand niet verwerken. Weet u zeker dat u het juiste {platform} bestand heeft gekozen?",
+            "en": f"Unfortunately, we cannot process your file. Did you really select your downloaded {platform_names.get(platform, platform)} ZIP file?",
+            "de": f"Leider können wir Ihre Datei nicht verarbeiten. Haben Sie wirklich Ihre {platform_names.get(platform, platform)}-Daten ausgewählt?",
+            "nl": f"Helaas, kunnen we uw bestand niet verwerken. Weet u zeker dat u het juiste {platform_names.get(platform, platform)} bestand heeft gekozen?",
         }
     )
 
@@ -625,25 +693,9 @@ def retry_confirmation_no_ddp(platform="Instagram"):
 def retry_confirmation_unknown_platform():
     text = props.Translatable(
         {
-            "en": "We could not identify the platform of your data export file. Please make sure you have selected a ZIP file from Instagram, YouTube, or LinkedIn.",
-            "de": "Wir konnten die Plattform Ihrer Datendatei nicht identifizieren. Bitte stellen Sie sicher, dass Sie eine ZIP-Datei von Instagram, YouTube oder LinkedIn ausgewählt haben.",
-            "nl": "We konden het platform van uw gegevensexportbestand niet identificeren. Zorg ervoor dat u een ZIP-bestand van Instagram, YouTube of LinkedIn heeft geselecteerd.",
-        }
-    )
-
-    ok = props.Translatable(
-        {"en": "Try again", "de": "Erneut versuchen", "nl": "Probeer opnieuw"}
-    )
-
-    return props.PropsUIPromptConfirm(text, ok)
-
-
-def retry_confirmation_platform_not_supported(platform):
-    text = props.Translatable(
-        {
-            "en": f"Support for {platform} data extraction is not yet available. Please try uploading data from a different platform.",
-            "de": f"Die Unterstützung für die Extraktion von {platform}-Daten ist noch nicht verfügbar. Bitte versuchen Sie, Daten von einer anderen Plattform hochzuladen.",
-            "nl": f"Ondersteuning voor {platform} gegevensextractie is nog niet beschikbaar. Probeer gegevens van een ander platform te uploaden.",
+            "en": "We could not identify the platform of your data file. Please make sure you have selected a ZIP file from the platform you requested your data from.",
+            "de": "Wir konnten die Plattform Ihrer Datei nicht identifizieren. Bitte stellen Sie sicher, dass Sie eine ZIP-Datei von der angefragten Platform ausgewählt haben.",
+            "nl": "We konden het platform van uw gegevensexportbestand niet identificeren. Zorg ervoor dat u een ZIP-bestand van platform.",
         }
     )
 
@@ -675,7 +727,6 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
     print(meta_data)
 
     table_list = []
-    i = 0
 
     # Initialize a list to store binary data (title and value pairs)
     binary_data = []
@@ -692,13 +743,12 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
             # If platform is unknown, we can't process the data
             extraction_dict = {}
 
-        for file, v in extraction_dict.items():
+        for i, (file, description) in enumerate(extraction_dict.items()):
             df = data[i]
-
             # Check if the dataframe has only one row
             if len(df) == 1:
-                # Extract the title from the 'en' translation
-                translated_title = v["title"][locale]
+                # Extract the title from the translation
+                translated_title = description["title"][locale]
                 # Combine values from all columns into a single string
                 combined_value = " |> ".join(
                     [f"{col}: {df.iloc[0][col]}" for col in df.columns]
@@ -709,12 +759,10 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
                 table = props.PropsUIPromptConsentFormTable(
                     file,
                     props.Translatable({"en": file, "de": file, "nl": file}),
-                    props.Translatable(v["title"]),
+                    props.Translatable(description["title"]),
                     df,
                 )
                 table_list.append(table)
-
-            i += 1
 
         # Create a dataframe for binary data if there are any single-row entries
         if binary_data:
@@ -722,13 +770,17 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
             table = props.PropsUIPromptConsentFormTable(
                 "binary_results",
                 props.Translatable(
-                    {"en": "binary_results", "de": "Binäre Übersicht", "nl": "XXX"}
+                    {
+                        "en": "Additional information",
+                        "de": "Zusätzliche Informationen",
+                        "nl": "Additional information",
+                    }
                 ),
                 props.Translatable(
                     {
-                        "en": f"Overview of additional {platform} data",
-                        "de": f"Übersicht von zusätzlichen {platform} Informationen",
-                        "nl": f"Binary {platform} data",
+                        "en": f"Overview of additional {platform_names.get(platform, platform)} data",
+                        "de": f"Übersicht von zusätzlichen {platform_names.get(platform, platform)} Informationen",
+                        "nl": f"Binary {platform_names.get(platform, platform)} data",
                     }
                 ),
                 binary_df,
@@ -738,9 +790,9 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
     # Create donation buttons
     donation_question = props.Translatable(
         {
-            "en": f"Do you want to donate the above {platform} data?",
-            "de": f"Möchten Sie die obigen {platform}-Daten spenden?",
-            "nl": f"Wilt u de bovenstaande {platform} gegevens doneren?",
+            "en": f"Do you want to donate the above {platform_names.get(platform, platform)} data?",
+            "de": f"Möchten Sie die obigen {platform_names.get(platform, platform)}-Daten spenden?",
+            "nl": f"Wilt u de bovenstaande {platform_names.get(platform, platform)} gegevens doneren?",
         }
     )
 
@@ -756,9 +808,9 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
         table_list,
         props.Translatable(
             {
-                "en": f"Please review the extracted {platform} data below before donating.",
-                "de": f"Bitte überprüfen Sie die extrahierten {platform}-Daten unten, bevor Sie spenden.",
-                "nl": f"Bekijk de geëxtraheerde {platform} gegevens hieronder voordat u doneert.",
+                "en": f"Please review the extracted {platform_names.get(platform, platform)} data below before donating.",
+                "de": f"Bitte überprüfen Sie die extrahierten {platform_names.get(platform, platform)}-Daten unten, bevor Sie spenden.",
+                "nl": f"Bekijk de geëxtraheerde {platform_names.get(platform, platform)} gegevens hieronder voordat u doneert.",
             }
         ),
         donation_question,

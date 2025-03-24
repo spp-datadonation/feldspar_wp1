@@ -54,7 +54,7 @@ def translate(value, locale, dummy_decider=None):
                     "nl": "Ja",
                 }
             )
-        elif dummy_decider in [False, "False", None]:
+        elif dummy_decider in [False, "False"]:
             translatedMessage = Translatable(
                 {
                     "en": "No",
@@ -82,7 +82,7 @@ def translate(value, locale, dummy_decider=None):
 ############################
 
 
-def extract_ads_viewed(ads_viewed_dict, locale):
+def extract_ads_seen(ads_seen_json, locale):
     """extract ads_information/ads_and_topics/ads_viewed -> list of authors per day"""
 
     tl_date = translate("date", locale)
@@ -93,7 +93,7 @@ def extract_ads_viewed(ads_viewed_dict, locale):
 
     timestamps = [
         t["string_map_data"]["Time"]["timestamp"]
-        for t in ads_viewed_dict["impressions_history_ads_seen"]
+        for t in ads_seen_json["impressions_history_ads_seen"]
     ]  # get list with timestamps in epoch format (if author exists)
     dates = [epoch_to_date(t) for t in timestamps]  # convert epochs to dates
     authors = [
@@ -107,7 +107,7 @@ def extract_ads_viewed(ads_viewed_dict, locale):
             },
             locale,
         )
-        for i in ads_viewed_dict["impressions_history_ads_seen"]
+        for i in ads_seen_json["impressions_history_ads_seen"]
     ]  # not for all viewed ads there is an author!
 
     adds_viewed_df = pd.DataFrame({tl_date: dates, tl_value: authors})
@@ -117,7 +117,7 @@ def extract_ads_viewed(ads_viewed_dict, locale):
     return aggregated_df
 
 
-def extract_ads_clicked(ads_clicked_dict, locale):
+def extract_ads_clicked(ads_clicked_json, locale):
     """extract ads_information/ads_and_topics/ads_clicked -> list of product names per day"""
 
     tl_date = translate("date", locale)
@@ -128,10 +128,10 @@ def extract_ads_clicked(ads_clicked_dict, locale):
 
     timestamps = [
         t["string_list_data"][0]["timestamp"]
-        for t in ads_clicked_dict["impressions_history_ads_clicked"]
+        for t in ads_clicked_json["impressions_history_ads_clicked"]
     ]  # get list with timestamps in epoch format
     dates = [epoch_to_date(t) for t in timestamps]  # convert epochs to dates
-    products = [i["title"] for i in ads_clicked_dict["impressions_history_ads_clicked"]]
+    products = [i["title"] for i in ads_clicked_json["impressions_history_ads_clicked"]]
 
     adds_clicked_df = pd.DataFrame({tl_date: dates, tl_value: products})
 
@@ -140,7 +140,7 @@ def extract_ads_clicked(ads_clicked_dict, locale):
     return aggregated_df
 
 
-def extract_recently_viewed_items(recently_viewed_items_dict, locale):
+def extract_recently_viewed_items(recently_viewed_items_json, locale):
     """extract your_instagram_activity/shopping/recently_viewed_items -> list of items"""
 
     tl_value = translate(
@@ -152,7 +152,7 @@ def extract_recently_viewed_items(recently_viewed_items_dict, locale):
         locale,
     )
 
-    items = recently_viewed_items_dict["checkout_saved_recently_viewed_products"]
+    items = recently_viewed_items_json["checkout_saved_recently_viewed_products"]
     products = [p["string_map_data"]["Product Name"]["value"] for p in items]
 
     products_df = pd.DataFrame(products, columns=[tl_value])
@@ -160,7 +160,7 @@ def extract_recently_viewed_items(recently_viewed_items_dict, locale):
     return products_df
 
 
-def extract_posts_viewed(posts_viewed_dict, locale):
+def extract_posts_seen(posts_seen_json, locale):
     """extract ads_information/ads_and_topics/posts_viewed -> count per day"""
 
     tl_date = translate("date", locale)
@@ -175,7 +175,7 @@ def extract_posts_viewed(posts_viewed_dict, locale):
 
     timestamps = [
         t["string_map_data"]["Time"]["timestamp"]
-        for t in posts_viewed_dict["impressions_history_posts_seen"]
+        for t in posts_seen_json["impressions_history_posts_seen"]
     ]  # get list with timestamps in epoch format
     dates = [epoch_to_date(t) for t in timestamps]  # convert epochs to dates
     postViewedDates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
@@ -187,7 +187,7 @@ def extract_posts_viewed(posts_viewed_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_videos_watched(videos_watched_dict, locale):
+def extract_videos_seen(videos_seen_json, locale):
     """extract ads_information/ads_and_topics/videos_watched -> count per day"""
 
     tl_date = translate("date", locale)
@@ -202,7 +202,7 @@ def extract_videos_watched(videos_watched_dict, locale):
 
     timestamps = [
         t["string_map_data"]["Time"]["timestamp"]
-        for t in videos_watched_dict["impressions_history_videos_watched"]
+        for t in videos_seen_json["impressions_history_videos_watched"]
     ]  # get list with timestamps in epoch format
     dates = [epoch_to_date(t) for t in timestamps]  # convert epochs to dates
     videosViewedDates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
@@ -214,7 +214,7 @@ def extract_videos_watched(videos_watched_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_subscription_for_no_ads(subscription_for_no_ads_dict, locale):
+def extract_paid_subscription(paid_subscription_json, locale):
     """extract ads_information/instagram_ads_and_businesses/subscription_for_no_ads -> dummy whether user has such a subscription"""
 
     tl_value = translate(
@@ -228,7 +228,7 @@ def extract_subscription_for_no_ads(subscription_for_no_ads_dict, locale):
 
     value = None
 
-    if subscription_for_no_ads_dict["label_values"][0]["value"] == "Inaktiv":
+    if paid_subscription_json["label_values"][0]["value"] == "Inaktiv":
         value = translate("dummy", locale, False)
     else:
         value = translate("dummy", locale, True)
@@ -236,7 +236,7 @@ def extract_subscription_for_no_ads(subscription_for_no_ads_dict, locale):
     return pd.DataFrame([value], columns=[tl_value])
 
 
-def extract_blocked_profiles(blocked_profiles_dict, locale):
+def extract_blocked_profiles(blocked_profiles_json, locale):
     """extract connections/followers_and_following/blocked_accounts -> count per day"""
 
     tl_date = translate("date", locale)
@@ -251,7 +251,7 @@ def extract_blocked_profiles(blocked_profiles_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in blocked_profiles_dict["relationships_blocked_users"]
+        for t in blocked_profiles_json["relationships_blocked_users"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -262,7 +262,7 @@ def extract_blocked_profiles(blocked_profiles_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_restricted_profiles(restricted_profiles_dict, locale):
+def extract_restricted_profiles(restricted_profiles_json, locale):
     """extract connections/followers_and_following/restricted_accounts -> count per day"""
 
     tl_date = translate("date", locale)
@@ -277,7 +277,7 @@ def extract_restricted_profiles(restricted_profiles_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in restricted_profiles_dict["relationships_restricted_users"]
+        for t in restricted_profiles_json["relationships_restricted_users"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -288,7 +288,7 @@ def extract_restricted_profiles(restricted_profiles_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_post_comments_1(post_comments_1_dict, locale):
+def extract_post_comments(post_comments_json, locale):
     """extract your_instagram_activity/comments/post_comments_1 -> count per day"""
 
     tl_date = translate("date", locale)
@@ -302,14 +302,14 @@ def extract_post_comments_1(post_comments_1_dict, locale):
     )
 
     # file can just be dict and not list if only one posted comment
-    if isinstance(post_comments_1_dict, dict):
+    if isinstance(post_comments_json, dict):
         dates = [
-            epoch_to_date(post_comments_1_dict["string_map_data"]["Time"]["timestamp"])
+            epoch_to_date(post_comments_json["string_map_data"]["Time"]["timestamp"])
         ]
     else:
         dates = [
             epoch_to_date(t["string_map_data"]["Time"]["timestamp"])
-            for t in post_comments_1_dict
+            for t in post_comments_json
         ]  # get list with timestamps in epoch format
 
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
@@ -321,7 +321,7 @@ def extract_post_comments_1(post_comments_1_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_reels_comments(reels_comments_dict, locale):
+def extract_reel_comments(reel_comments_json, locale):
     """extract your_instagram_activity/comments/reels_comments -> count per day"""
 
     tl_date = translate("date", locale)
@@ -336,7 +336,7 @@ def extract_reels_comments(reels_comments_dict, locale):
 
     dates = [
         epoch_to_date(t["string_map_data"]["Time"]["timestamp"])
-        for t in reels_comments_dict["comments_reels_comments"]
+        for t in reel_comments_json["comments_reels_comments"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -347,7 +347,7 @@ def extract_reels_comments(reels_comments_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_liked_posts(liked_posts_dict, locale):
+def extract_posts_liked(posts_liked_json, locale):
     """extract your_instagram_activity/likes/liked_posts -> count per day"""
 
     tl_date = translate("date", locale)
@@ -362,7 +362,7 @@ def extract_liked_posts(liked_posts_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in liked_posts_dict["likes_media_likes"]
+        for t in posts_liked_json["likes_media_likes"]
     ]
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -373,7 +373,7 @@ def extract_liked_posts(liked_posts_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_story_likes(story_likes_dict, locale):
+def extract_stories_liked(stories_liked_json, locale):
     """extract your_instagram_activity/story_sticker_interactions/story_likes -> count per day"""
 
     tl_date = translate("date", locale)
@@ -388,7 +388,7 @@ def extract_story_likes(story_likes_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in story_likes_dict["story_activities_story_likes"]
+        for t in stories_liked_json["story_activities_story_likes"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -399,7 +399,7 @@ def extract_story_likes(story_likes_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_liked_comments(liked_comments_dict, locale):
+def extract_comments_liked(comments_liked_json, locale):
     """extract your_instagram_activity/likes/liked_comments -> count per day"""
 
     tl_date = translate("date", locale)
@@ -414,7 +414,7 @@ def extract_liked_comments(liked_comments_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in liked_comments_dict["likes_comment_likes"]
+        for t in comments_liked_json["likes_comment_likes"]
     ]
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -425,7 +425,7 @@ def extract_liked_comments(liked_comments_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_countdowns(countdowns_dict, locale):
+def extract_story_interaction_countdowns(story_interaction_countdowns_json, locale):
     """extract your_instagram_activity/story_sticker_interactions/countdowns -> count per day"""
 
     tl_date = translate("date", locale)
@@ -440,7 +440,7 @@ def extract_countdowns(countdowns_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in countdowns_dict["story_activities_countdowns"]
+        for t in story_interaction_countdowns_json["story_activities_countdowns"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -451,7 +451,9 @@ def extract_countdowns(countdowns_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_emoji_sliders(emoji_sliders_dict, locale):
+def extract_story_interaction_emoji_sliders(
+    story_interaction_emoji_sliders_json, locale
+):
     """extract your_instagram_activity/story_sticker_interactions/emoji_sliders -> count per day"""
 
     tl_date = translate("date", locale)
@@ -466,7 +468,7 @@ def extract_emoji_sliders(emoji_sliders_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in emoji_sliders_dict["story_activities_emoji_sliders"]
+        for t in story_interaction_emoji_sliders_json["story_activities_emoji_sliders"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -477,7 +479,7 @@ def extract_emoji_sliders(emoji_sliders_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_polls(polls_dict, locale):
+def extract_story_interaction_polls(story_interaction_polls_json, locale):
     """extract your_instagram_activity/story_sticker_interactions/polls -> count per day"""
 
     tl_date = translate("date", locale)
@@ -492,7 +494,7 @@ def extract_polls(polls_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in polls_dict["story_activities_polls"]
+        for t in story_interaction_polls_json["story_activities_polls"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -503,7 +505,7 @@ def extract_polls(polls_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_questions(questions_dict, locale):
+def extract_story_interaction_questions(story_interaction_questions_json, locale):
     """extract your_instagram_activity/story_sticker_interactions/questions -> count per day"""
 
     tl_date = translate("date", locale)
@@ -518,7 +520,7 @@ def extract_questions(questions_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in questions_dict["story_activities_questions"]
+        for t in story_interaction_questions_json["story_activities_questions"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -529,7 +531,7 @@ def extract_questions(questions_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_quizzes(quizzes_dict, locale):
+def extract_story_interaction_quizzes(story_interaction_quizzes_json, locale):
     """extract your_instagram_activity/story_sticker_interactions/quizzes -> count per day"""
 
     tl_date = translate("date", locale)
@@ -544,7 +546,7 @@ def extract_quizzes(quizzes_dict, locale):
 
     dates = [
         epoch_to_date(t["string_list_data"][0]["timestamp"])
-        for t in quizzes_dict["story_activities_quizzes"]
+        for t in story_interaction_quizzes_json["story_activities_quizzes"]
     ]  # get list with timestamps in epoch format
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
 
@@ -555,7 +557,7 @@ def extract_quizzes(quizzes_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_posts_1(posts_1_dict, locale):
+def extract_posts_created(posts_created_json, locale):
     """extract your_instagram_activity/content/posts_1 -> count per day + info about location"""
 
     tl_value = translate(
@@ -570,8 +572,8 @@ def extract_posts_1(posts_1_dict, locale):
     results = []
 
     # file can just be dict and not list if only one post
-    if isinstance(posts_1_dict, dict):
-        for media in posts_1_dict.get("media", []):
+    if isinstance(posts_created_json, dict):
+        for media in posts_created_json.get("media", []):
             date = epoch_to_date(media.get("creation_timestamp", ""))
             has_latitude_data = any(
                 "latitude" in exif_data
@@ -588,7 +590,7 @@ def extract_posts_1(posts_1_dict, locale):
             )
 
     else:
-        for post in posts_1_dict:
+        for post in posts_created_json:
             for media in post.get("media", []):
                 date = epoch_to_date(media.get("creation_timestamp", ""))
                 has_latitude_data = any(
@@ -610,7 +612,7 @@ def extract_posts_1(posts_1_dict, locale):
     return posts_df
 
 
-def extract_stories(stories_dict, locale):
+def extract_stories_created(stories_created_json, locale):
     """extract your_instagram_activity/content/stories -> count per day + info about location"""
 
     tl_value = translate(
@@ -624,7 +626,7 @@ def extract_stories(stories_dict, locale):
 
     results = []
 
-    for story in stories_dict.get("ig_stories", []):
+    for story in stories_created_json.get("ig_stories", []):
         date = epoch_to_date(story.get("creation_timestamp", ""))
         has_latitude_data = any(
             "latitude" in exif_data
@@ -645,7 +647,7 @@ def extract_stories(stories_dict, locale):
     return stories_df
 
 
-def extract_reels(reels_dict, locale):
+def extract_reels_created(reels_created_json, locale):
     """extract your_instagram_activity/content/reels -> count per day"""
 
     tl_date = translate("date", locale)
@@ -655,7 +657,7 @@ def extract_reels(reels_dict, locale):
 
     dates = [
         epoch_to_date(media.get("creation_timestamp"))
-        for reel in reels_dict.get("ig_reels_media", [])
+        for reel in reels_created_json.get("ig_reels_media", [])
         for media in reel.get("media", [])
     ]
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
@@ -667,7 +669,7 @@ def extract_reels(reels_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_followers_1(followers_1_dict, locale):
+def extract_followers_accepted(followers_accepted_json, locale):
     """extract connections/followers_and_following/followers_1 -> count per day"""
 
     tl_date = translate("date", locale)
@@ -681,12 +683,14 @@ def extract_followers_1(followers_1_dict, locale):
     )
 
     # file can just be dict and not list if only one follower
-    if isinstance(followers_1_dict, dict):
-        dates = [epoch_to_date(followers_1_dict["string_list_data"][0]["timestamp"])]
+    if isinstance(followers_accepted_json, dict):
+        dates = [
+            epoch_to_date(followers_accepted_json["string_list_data"][0]["timestamp"])
+        ]
     else:
         dates = [
             epoch_to_date(t["string_list_data"][0]["timestamp"])
-            for t in followers_1_dict
+            for t in followers_accepted_json
         ]
 
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
@@ -698,7 +702,7 @@ def extract_followers_1(followers_1_dict, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_instagram_profile_information(instagram_profile_information_dict, locale):
+def extract_contact_syncing(contact_syncing_json, locale):
     """extract personal_information/personal_information/account_information -> dummy whether 'contact_syncing' is enabled"""
 
     tl_value = translate(
@@ -717,13 +721,8 @@ def extract_instagram_profile_information(instagram_profile_information_dict, lo
         "Kontaktsynchronisierung",
         "Synchronisation des contacts",
     ]:  # keys are language specific
-        if (
-            k
-            in instagram_profile_information_dict["profile_account_insights"][0][
-                "string_map_data"
-            ]
-        ):
-            value = instagram_profile_information_dict["profile_account_insights"][0][
+        if k in contact_syncing_json["profile_account_insights"][0]["string_map_data"]:
+            value = contact_syncing_json["profile_account_insights"][0][
                 "string_map_data"
             ][k]["value"]
             break
@@ -731,7 +730,7 @@ def extract_instagram_profile_information(instagram_profile_information_dict, lo
     return pd.DataFrame([translate("dummy", locale, value)], columns=[tl_value])
 
 
-def extract_personal_information(personal_information_dict, locale):
+def extract_personal_information(personal_information_json, locale):
     """
     extract personal_information/personal_information/personal_information.json -> dummies whether user has email, phone, and private account
     """
@@ -761,9 +760,9 @@ def extract_personal_information(personal_information_dict, locale):
     email, phone, private_account = None, None, None
 
     for k in ["Email", "E-Mail-Adresse"]:  # keys are language specific
-        if k in personal_information_dict["profile_user"][0]["string_map_data"]:
+        if k in personal_information_json["profile_user"][0]["string_map_data"]:
             email = (
-                personal_information_dict["profile_user"][0]["string_map_data"][k][
+                personal_information_json["profile_user"][0]["string_map_data"][k][
                     "value"
                 ]
                 != "False"
@@ -774,9 +773,9 @@ def extract_personal_information(personal_information_dict, locale):
         "Phone Confirmed",
         "Telefonnummer best\u00c3\u00a4tigt",
     ]:  # keys are language specific
-        if k in personal_information_dict["profile_user"][0]["string_map_data"]:
+        if k in personal_information_json["profile_user"][0]["string_map_data"]:
             phone = (
-                personal_information_dict["profile_user"][0]["string_map_data"][k][
+                personal_information_json["profile_user"][0]["string_map_data"][k][
                     "value"
                 ]
                 != "False"
@@ -784,8 +783,8 @@ def extract_personal_information(personal_information_dict, locale):
             break
 
     for k in ["Private Account", "Privates Konto"]:  # keys are language specific
-        if k in personal_information_dict["profile_user"][0]["string_map_data"]:
-            private_account = personal_information_dict["profile_user"][0][
+        if k in personal_information_json["profile_user"][0]["string_map_data"]:
+            private_account = personal_information_json["profile_user"][0][
                 "string_map_data"
             ][k]["value"]
             break
@@ -801,21 +800,22 @@ def extract_personal_information(personal_information_dict, locale):
     return result
 
 
-def extract_topics_df(topics_dict, locale):
+def extract_topic_interests(topic_interests_json, locale):
     """extract preferences/your_topics -> list of topics"""
 
     tl_value = translate(
         {"en": "Your topics", "de": "Ihre Themen", "nl": "Uw onderwerpen"}, locale
     )
     topics_list = [
-        t["string_map_data"]["Name"]["value"] for t in topics_dict["topics_your_topics"]
+        t["string_map_data"]["Name"]["value"]
+        for t in topic_interests_json["topics_your_topics"]
     ]
     topics_df = pd.DataFrame(topics_list, columns=[tl_value])
 
     return topics_df
 
 
-def extract_login_activity(login_activity_dict, locale):
+def extract_login_activity(login_activity_json, locale):
     """extract security_and_login_information/login_and_account_creation/login_activity -> time and user agent"""
 
     tl_date = translate("date", locale)
@@ -824,7 +824,7 @@ def extract_login_activity(login_activity_dict, locale):
         {"en": "User agent", "de": "Gerät", "nl": "Gebruikersagent"}, locale
     )
 
-    logins = login_activity_dict["account_history_login_history"]
+    logins = login_activity_json["account_history_login_history"]
 
     timestamps = [t["title"] for t in logins]
     dates = [str(datetime.fromisoformat(timestamp).date()) for timestamp in timestamps]
@@ -837,7 +837,7 @@ def extract_login_activity(login_activity_dict, locale):
     return login_df
 
 
-def extract_logout_activity(logout_activity_dict, locale):
+def extract_logout_activity(logout_activity_json, locale):
     """extract security_and_login_information/login_and_account_creation/logout_activity -> time and user agent"""
 
     tl_date = translate("date", locale)
@@ -846,7 +846,7 @@ def extract_logout_activity(logout_activity_dict, locale):
         {"en": "User agent", "de": "Gerät", "nl": "Gebruikersagent"}, locale
     )
 
-    logouts = logout_activity_dict["account_history_logout_history"]
+    logouts = logout_activity_json["account_history_logout_history"]
 
     timestamps = [t["title"] for t in logouts]
     dates = [str(datetime.fromisoformat(timestamp).date()) for timestamp in timestamps]

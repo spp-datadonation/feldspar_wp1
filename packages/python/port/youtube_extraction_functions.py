@@ -31,7 +31,7 @@ def translate(value, locale, dummy_decider=None):
                     "nl": "Ja",
                 }
             )
-        elif dummy_decider in [False, "False", None]:
+        elif dummy_decider in [False, "False"]:
             translatedMessage = Translatable(
                 {
                     "en": "No",

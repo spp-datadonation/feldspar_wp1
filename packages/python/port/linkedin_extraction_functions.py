@@ -30,7 +30,7 @@ def translate(value, locale, dummy_decider=None):
                     "nl": "Ja",
                 }
             )
-        elif dummy_decider in [False, "False", None]:
+        elif dummy_decider in [False, "False"]:
             translatedMessage = Translatable(
                 {
                     "en": "No",
@@ -53,27 +53,12 @@ def translate(value, locale, dummy_decider=None):
         return translatedMessage.translations[locale]
 
 
-def parse_linkedin_date(date_str):
-    """Convert LinkedIn date formats to standard format"""
-    try:
-        # Try different date formats
-        for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%d/%m/%Y", "%B %d, %Y"):
-            try:
-                date_obj = datetime.strptime(date_str, fmt)
-                return date_obj.strftime("%Y-%m-%d")
-            except ValueError:
-                continue
-        return date_str  # Return original if no format matches
-    except:
-        return "Unknown"
-
-
 ############################
 # Extraction functions for LinkedIn data
 ############################
 
 
-def extract_linkedin_messages(messages_csv, locale):
+def extract_messages(messages_csv, locale):
     """Extract LinkedIn messages data aggregated by day and member"""
 
     tl_date = translate("date", locale)
@@ -173,7 +158,7 @@ def extract_linkedin_messages(messages_csv, locale):
         )
 
 
-def extract_linkedin_connections(connections_csv, locale):
+def extract_connections(connections_csv, locale):
     """Extract LinkedIn connections data with proper date formatting and field checks"""
 
     tl_date = translate("date", locale)
@@ -295,7 +280,7 @@ def extract_linkedin_connections(connections_csv, locale):
     return pd.DataFrame(results)
 
 
-def extract_linkedin_interests(ad_targeting_csv, locale):
+def extract_interests(ad_targeting_csv, locale):
     """Extract LinkedIn member interests from Ad_Targeting data"""
 
     tl_interest = translate(
