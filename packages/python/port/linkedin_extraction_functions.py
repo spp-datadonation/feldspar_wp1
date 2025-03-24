@@ -92,32 +92,15 @@ def extract_connections(connections_csv, locale):
         {"en": "With position", "de": "Mit Position", "nl": "Met functie"}, locale
     )
 
-    # Check if DataFrame is empty or None
-    if connections_csv is None or connections_csv.empty:
-        return pd.DataFrame(
-            {
-                tl_date: ["N/A"],
-                tl_count: ["No data available"],
-                tl_has_names: ["N/A"],
-                tl_has_url: ["N/A"],
-                tl_has_email: ["N/A"],
-                tl_has_company: ["N/A"],
-                tl_has_position: ["N/A"],
-            }
-        )
-
-    # Process connections data
-    results = []
-
     # Find the date column - in your case it's "Connected On"
     date_column = "Connected On"
-    if date_column not in connections_csv.columns:
-        for col in connections_csv.columns:
-            if "Connect" in col or "Date" in col:
-                date_column = col
-                break
+    for col in connections_csv.columns:
+        if "Connect" in col or "Date" in col:
+            date_column = col
+            break
 
     if date_column not in connections_csv.columns:
+        # Return a simple DataFrame with total count if date column not found
         return pd.DataFrame(
             {
                 tl_date: ["N/A"],
@@ -131,9 +114,10 @@ def extract_connections(connections_csv, locale):
         )
 
     # Process each connection date
+    results = []
     grouped_connections = connections_csv.groupby(date_column)
     for date, group in grouped_connections:
-        # Convert date to standard format (based on your "23 Mar 2025" format)
+        # Convert date to standard format
         try:
             date_obj = pd.to_datetime(date, format="%d %b %Y")
             std_date = date_obj.strftime("%Y-%m-%d")
@@ -143,7 +127,7 @@ def extract_connections(connections_csv, locale):
         # Count connections for this date
         count = len(group)
 
-        # Calculate absolute counts for each field (not percentages)
+        # Calculate absolute counts for each field
         has_names = sum((group["First Name"].notna()) & (group["Last Name"].notna()))
         has_url = sum(group["URL"].notna())
         has_email = sum(group["Email Address"].notna())
@@ -199,16 +183,6 @@ def extract_reactions(reactions_csv, locale):
         locale,
     )
 
-    # Check if DataFrame is empty or None
-    if reactions_csv is None or reactions_csv.empty:
-        return pd.DataFrame(
-            {
-                tl_date: ["N/A"],
-                tl_type: ["N/A"],
-                tl_count: ["No reaction data available"],
-            }
-        )
-
     # Find the date and type columns
     date_column = None
     type_column = None
@@ -229,32 +203,23 @@ def extract_reactions(reactions_csv, locale):
         )
 
     # Process reaction data
-    try:
-        # Convert dates to a standard format
-        processed_df = reactions_csv.copy()
+    # Convert dates to a standard format
+    processed_df = reactions_csv.copy()
+    processed_df["formatted_date"] = pd.to_datetime(
+        processed_df[date_column]
+    ).dt.strftime("%Y-%m-%d")
 
-        # Format the date to ensure it's in readable format, not as timestamp
-        processed_df["formatted_date"] = pd.to_datetime(
-            processed_df[date_column]
-        ).dt.strftime("%Y-%m-%d")
+    # Group by date and reaction type
+    grouped_reactions = (
+        processed_df.groupby(["formatted_date", type_column])
+        .size()
+        .reset_index(name=tl_count)
+    )
+    grouped_reactions.rename(
+        columns={"formatted_date": tl_date, type_column: tl_type}, inplace=True
+    )
 
-        # Group by date and reaction type
-        grouped_reactions = (
-            processed_df.groupby(["formatted_date", type_column])
-            .size()
-            .reset_index(name=tl_count)
-        )
-        grouped_reactions.rename(
-            columns={"formatted_date": tl_date, type_column: tl_type}, inplace=True
-        )
-
-        return grouped_reactions
-
-    except Exception as e:
-        print(f"Error processing reactions data: {e}")
-        return pd.DataFrame(
-            {tl_date: ["N/A"], tl_type: ["Processing error"], tl_count: ["N/A"]}
-        )
+    return grouped_reactions
 
 
 def extract_messages(messages_csv, locale):
@@ -277,16 +242,6 @@ def extract_messages(messages_csv, locale):
         },
         locale,
     )
-
-    # Check if DataFrame is empty or None
-    if messages_csv is None or messages_csv.empty:
-        return pd.DataFrame(
-            {
-                tl_date: ["N/A"],
-                tl_count: ["No message data available"],
-                tl_members: ["N/A"],
-            }
-        )
 
     # Try to find date column
     date_col = None
@@ -312,49 +267,42 @@ def extract_messages(messages_csv, locale):
         )
 
     # Process each day
-    try:
-        messages_csv[date_col] = pd.to_datetime(messages_csv[date_col], errors="coerce")
-        # Use date part only
-        messages_csv["DATE_STD"] = messages_csv[date_col].dt.strftime("%Y-%m-%d")
+    messages_csv[date_col] = pd.to_datetime(messages_csv[date_col], errors="coerce")
+    # Use date part only
+    messages_csv["DATE_STD"] = messages_csv[date_col].dt.strftime("%Y-%m-%d")
 
-        # Remove NaT values
-        messages_csv = messages_csv.dropna(subset=["DATE_STD"])
+    # Remove NaT values
+    messages_csv = messages_csv.dropna(subset=["DATE_STD"])
 
-        if messages_csv.empty:
-            return pd.DataFrame(
-                {
-                    tl_date: ["N/A"],
-                    tl_count: ["Date parsing error"],
-                    tl_members: ["N/A"],
-                }
-            )
-
-        # Group by date and count messages and unique members
-        daily_counts = (
-            messages_csv.groupby("DATE_STD")
-            .agg(
-                message_count=("DATE_STD", "count"),
-                members=(sender_col, lambda x: len(set(x))),
-            )
-            .reset_index()
-        )
-
-        # Create result DataFrame
-        result_df = pd.DataFrame(
+    if messages_csv.empty:
+        return pd.DataFrame(
             {
-                tl_date: daily_counts["DATE_STD"],
-                tl_count: daily_counts["message_count"],
-                tl_members: daily_counts["members"],
+                tl_date: ["N/A"],
+                tl_count: ["Date parsing error"],
+                tl_members: ["N/A"],
             }
         )
 
-        return result_df
-
-    except Exception as e:
-        print(f"Error processing messages data: {e}")
-        return pd.DataFrame(
-            {tl_date: ["N/A"], tl_count: ["Processing error"], tl_members: ["N/A"]}
+    # Group by date and count messages and unique members
+    daily_counts = (
+        messages_csv.groupby("DATE_STD")
+        .agg(
+            message_count=("DATE_STD", "count"),
+            members=(sender_col, lambda x: len(set(x))),
         )
+        .reset_index()
+    )
+
+    # Create result DataFrame
+    result_df = pd.DataFrame(
+        {
+            tl_date: daily_counts["DATE_STD"],
+            tl_count: daily_counts["message_count"],
+            tl_members: daily_counts["members"],
+        }
+    )
+
+    return result_df
 
 
 def extract_search_queries(search_queries_csv, locale):
@@ -369,15 +317,6 @@ def extract_search_queries(search_queries_csv, locale):
         },
         locale,
     )
-
-    # Check if DataFrame is empty or None
-    if search_queries_csv is None or search_queries_csv.empty:
-        return pd.DataFrame(
-            {
-                tl_date: ["N/A"],
-                tl_count: ["No search data available"],
-            }
-        )
 
     # Find the time/date column
     time_column = None
@@ -394,29 +333,21 @@ def extract_search_queries(search_queries_csv, locale):
             }
         )
 
-    # Process search data
-    try:
-        # Create a copy to avoid SettingWithCopyWarning
-        processed_df = search_queries_csv.copy()
+    # Create a copy to avoid SettingWithCopyWarning
+    processed_df = search_queries_csv.copy()
 
-        # Convert dates to a standard readable format
-        processed_df["formatted_date"] = pd.to_datetime(
-            processed_df[time_column], format="%Y/%m/%d %H:%M:%S UTC", errors="coerce"
-        ).dt.strftime("%Y-%m-%d")
+    # Convert dates to a standard readable format
+    processed_df["formatted_date"] = pd.to_datetime(
+        processed_df[time_column], format="%Y/%m/%d %H:%M:%S UTC", errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
 
-        # Count searches per day
-        daily_counts = (
-            processed_df.groupby("formatted_date").size().reset_index(name=tl_count)
-        )
-        daily_counts.rename(columns={"formatted_date": tl_date}, inplace=True)
+    # Count searches per day
+    daily_counts = (
+        processed_df.groupby("formatted_date").size().reset_index(name=tl_count)
+    )
+    daily_counts.rename(columns={"formatted_date": tl_date}, inplace=True)
 
-        return daily_counts
-
-    except Exception as e:
-        print(f"Error processing search queries data: {e}")
-        return pd.DataFrame(
-            {tl_date: ["N/A"], tl_count: [f"Processing error: {str(e)}"]}
-        )
+    return daily_counts
 
 
 def extract_interests(ad_targeting_csv, locale):
@@ -430,10 +361,6 @@ def extract_interests(ad_targeting_csv, locale):
         },
         locale,
     )
-
-    # Check if DataFrame is empty or None
-    if ad_targeting_csv is None or ad_targeting_csv.empty:
-        return pd.DataFrame({tl_interest: ["No interest data available"]})
 
     # Based on your data, "Member Interests" appears to be the column name
     interest_col = "Member Interests"
@@ -502,15 +429,6 @@ def extract_profile(profile_csv, locale):
         },
         locale,
     )
-
-    # Check if DataFrame is empty or None
-    if profile_csv is None or profile_csv.empty:
-        return pd.DataFrame(
-            {
-                tl_field: ["N/A"],
-                tl_has_value: ["No profile data available"],
-            }
-        )
 
     # Important profile fields to check
     important_fields = [
@@ -594,18 +512,6 @@ def extract_positions(positions_csv, locale):
         },
         locale,
     )
-
-    # Check if DataFrame is empty or None
-    if positions_csv is None or positions_csv.empty:
-        return pd.DataFrame(
-            {
-                tl_has_company: ["N/A"],
-                tl_has_title: ["N/A"],
-                tl_has_description: ["N/A"],
-                tl_has_location: ["N/A"],
-                tl_has_dates: ["N/A"],
-            }
-        )
 
     # Find the needed columns
     company_col = None
@@ -705,82 +611,54 @@ def extract_device_usage(security_challenges_csv, locale):
         locale,
     )
 
-    # Check if DataFrame is empty or None
-    if security_challenges_csv is None or security_challenges_csv.empty:
-        return pd.DataFrame(
-            {
-                tl_date: ["N/A"],
-                tl_user_agent: ["No device data available"],
-                tl_country: ["N/A"],
-            }
-        )
-
     # This is a special case as the CSV may have data spread across multiple columns
-    # due to commas in the user agent string
+    # Find the important columns
+    challenge_date_col = None
+    user_agent_col = None
+    country_col = None
 
-    # Try to reconstruct the data
+    for col in security_challenges_csv.columns:
+        if "Challenge Date" in col or "Datum" in col:
+            challenge_date_col = col
+        if "User Agent" in col or "Agent" in col:
+            user_agent_col = col
+        if "Country" in col or "Land" in col:
+            country_col = col
+
+    # If we couldn't find the columns by name, try to use positional logic
+    if not challenge_date_col and len(security_challenges_csv.columns) > 0:
+        challenge_date_col = security_challenges_csv.columns[0]  # Usually first column
+
+    if not country_col and len(security_challenges_csv.columns) > 3:
+        country_col = security_challenges_csv.columns[3]  # Often the 4th column
+
     results = []
+    for _, row in security_challenges_csv.iterrows():
+        # Get the date (format: "Sat Apr 29 16:38:10 UTC 2023" or similar)
+        if challenge_date_col:
+            date_str = str(row[challenge_date_col])
+            date_parts = date_str.split()
+            if len(date_parts) >= 3:
+                date_str = f"{date_parts[1]} {date_parts[2]}, {date_parts[-1]}"
+        else:
+            date_str = "Unknown Date"
 
-    try:
-        # First, identify the important columns
-        challenge_date_col = None
-        user_agent_col = None
-        country_col = None
+        # Get country
+        country = "Unknown"
+        if country_col and pd.notna(row[country_col]):
+            country = row[country_col]
 
-        for col in security_challenges_csv.columns:
-            if "Challenge Date" in col or "Datum" in col:
-                challenge_date_col = col
-            if "User Agent" in col or "Agent" in col:
-                user_agent_col = col
-            if "Country" in col or "Land" in col:
-                country_col = col
+        # Try to find the user agent by looking through all cells in the row
+        user_agent = "Unknown"
+        for col, value in row.items():
+            if isinstance(value, str) and (
+                "Mozilla" in value or "AppleWebKit" in value
+            ):
+                user_agent = value
+                break
 
-        # If we couldn't find the columns by name, try to use positional logic
-        if not challenge_date_col and len(security_challenges_csv.columns) > 0:
-            challenge_date_col = security_challenges_csv.columns[
-                0
-            ]  # Usually first column
-
-        if not country_col and len(security_challenges_csv.columns) > 3:
-            country_col = security_challenges_csv.columns[3]  # Often the 4th column
-
-        for _, row in security_challenges_csv.iterrows():
-            # Get the date (format: "Sat Apr 29 16:38:10 UTC 2023" or similar)
-            if challenge_date_col:
-                date_str = str(row[challenge_date_col])
-                date_parts = date_str.split()
-                if len(date_parts) >= 3:
-                    date_str = f"{date_parts[1]} {date_parts[2]}, {date_parts[-1]}"
-
-            else:
-                date_str = "Unknown Date"
-
-            # Get country
-            country = "Unknown"
-            if country_col and pd.notna(row[country_col]):
-                country = row[country_col]
-
-            # Try to find the user agent by looking through all cells in the row
-            user_agent = "Unknown"
-            for col, value in row.items():
-                if isinstance(value, str) and (
-                    "Mozilla" in value or "AppleWebKit" in value
-                ):
-                    user_agent = value
-                    break
-
-            results.append(
-                {tl_date: date_str, tl_user_agent: user_agent, tl_country: country}
-            )
-
-        return pd.DataFrame(results)
-
-    except Exception as e:
-        print(f"Error processing device usage data: {e}")
-        return pd.DataFrame(
-            {
-                tl_date: ["N/A"],
-                tl_user_agent: [f"Processing error: {str(e)}"],
-                tl_country: ["N/A"],
-            }
+        results.append(
+            {tl_date: date_str, tl_user_agent: user_agent, tl_country: country}
         )
+
+    return pd.DataFrame(results)

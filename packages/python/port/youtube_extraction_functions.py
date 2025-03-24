@@ -104,15 +104,6 @@ def extract_comments(comments_csv, locale):
         locale,
     )
 
-    # Check if DataFrame is empty or None
-    if comments_csv is None or comments_csv.empty:
-        return pd.DataFrame(
-            {
-                tl_date: ["N/A"],
-                tl_value: ["No comment data available"],
-            }
-        )
-
     # Find the date column
     date_column = None
     for possible_column in [
@@ -131,41 +122,23 @@ def extract_comments(comments_csv, locale):
             }
         )
 
-    # Process comment dates
-    try:
-        # Try to convert dates to a consistent format
-        comments_csv[date_column] = pd.to_datetime(
-            comments_csv[date_column], errors="coerce"
-        )
-        # Extract just the date portion (without time)
-        comments_csv["formatted_date"] = comments_csv[date_column].dt.strftime(
-            "%Y-%m-%d"
-        )
+    # Convert dates to a consistent format
+    comments_csv[date_column] = pd.to_datetime(
+        comments_csv[date_column], errors="coerce"
+    )
+    # Extract just the date portion (without time)
+    comments_csv["formatted_date"] = comments_csv[date_column].dt.strftime("%Y-%m-%d")
 
-        # Remove entries with NaT values
-        comments_csv = comments_csv.dropna(subset=["formatted_date"])
+    # Remove entries with NaT values
+    comments_csv = comments_csv.dropna(subset=["formatted_date"])
 
-        if comments_csv.empty:
-            return pd.DataFrame(
-                {
-                    tl_date: ["N/A"],
-                    tl_value: ["Date parsing error"],
-                }
-            )
+    # Count comments per day
+    daily_counts = (
+        comments_csv.groupby("formatted_date").size().reset_index(name=tl_value)
+    )
+    daily_counts.rename(columns={"formatted_date": tl_date}, inplace=True)
 
-        # Count comments per day
-        daily_counts = (
-            comments_csv.groupby("formatted_date").size().reset_index(name=tl_value)
-        )
-        daily_counts.rename(columns={"formatted_date": tl_date}, inplace=True)
-
-        return daily_counts
-
-    except Exception as e:
-        print(f"Error processing comment data: {e}")
-        return pd.DataFrame(
-            {tl_date: ["N/A"], tl_value: [f"Processing error: {str(e)}"]}
-        )
+    return daily_counts
 
 
 def extract_subscriptions(subscriptions_csv, locale):
