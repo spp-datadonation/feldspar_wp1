@@ -1,7 +1,7 @@
 import port.instagram_extraction_functions as ef
 
 # defines which extraction functions are used and what titles are displayed
-# dict-keys are names of files or paths to that file if filename in path (like in personal_information/personal_information)
+# patterns are names of files or paths to that file if filename in path (like in personal_information/personal_information)
 
 extraction_dict = {
     "time_spent": {

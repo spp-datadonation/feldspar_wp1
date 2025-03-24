@@ -260,14 +260,14 @@ def check_if_valid_linkedin_ddp(filename):
     file_name_check_ddp = "Profile.csv"
     ddp_name_check_complete = "Complete_LinkedInDataExport"
 
+    found_ddp_name_check_complete = False
+    found_file_name_check_ddp = False
+
     if ddp_name_check_complete in filename:
         found_ddp_name_check_complete = True
 
     try:
         with zipfile.ZipFile(filename, "r") as zip_ref:
-            found_file_name_check_ddp = False
-            found_ddp_name_check_complete = False
-
             for file_info in zip_ref.infolist():
                 if file_name_check_ddp in file_info.filename:
                     found_file_name_check_ddp = True
@@ -621,7 +621,7 @@ def extract_instagram_content_from_zip_folder(zip_file_path, file_key, patterns)
 
 def extract_linkedin_content_from_zip_folder(zip_file_path, patterns):
     """
-    Extract content from LinkedIn data export zip file using exact filenames
+    Extract content from LinkedIn data export zip file
     """
     try:
         with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
@@ -630,46 +630,56 @@ def extract_linkedin_content_from_zip_folder(zip_file_path, patterns):
 
             # Look for matching files
             for pattern in patterns:
+                # Create a list of matching files - use exact matching to avoid partial matches
+                matching_files = []
+
                 for file_name in file_names:
-                    if file_name.endswith(".csv") and pattern in file_name:
-                        try:
-                            # Read the CSV
-                            with zip_ref.open(file_name) as csv_file:
-                                # Handle notes section in LinkedIn CSV files
-                                peek = csv_file.read(50).decode(
-                                    "utf-8", errors="ignore"
-                                )
-                                csv_file.seek(0)
+                    # Get just the filename (without directory)
+                    base_name = file_name.split("/")[-1]
 
-                                if "Notes:" in peek:
-                                    # Skip notes lines until we find the header
-                                    lines = []
-                                    for line in csv_file:
-                                        decoded = line.decode("utf-8", errors="ignore")
-                                        if (
-                                            "First Name" in decoded
-                                            or "Email" in decoded
-                                        ):
-                                            lines.append(decoded)
-                                            break
+                    # Only match if the base name is exactly the pattern
+                    if base_name == pattern:
+                        matching_files.append(file_name)
 
-                                    # Read the rest of the file
-                                    for line in csv_file:
-                                        lines.append(
-                                            line.decode("utf-8", errors="ignore")
-                                        )
+                # If no exact matches, see if there are any files that end with the pattern
+                if not matching_files:
+                    for file_name in file_names:
+                        if file_name.endswith("/" + pattern):
+                            matching_files.append(file_name)
 
-                                    # Create CSV from cleaned data
-                                    from io import StringIO
+                # Process the first matching file we found
+                for file_name in matching_files:
+                    try:
+                        # Read the CSV
+                        with zip_ref.open(file_name) as csv_file:
+                            # Handle notes section in LinkedIn CSV files
+                            peek = csv_file.read(50).decode("utf-8", errors="ignore")
+                            csv_file.seek(0)
 
-                                    csv_data = StringIO("".join(lines))
-                                    return pd.read_csv(csv_data), pattern
-                                else:
-                                    # No notes, read directly
-                                    return pd.read_csv(csv_file), pattern
-                        except Exception as e:
-                            print(f"Error reading file {file_name}: {e}")
-                            continue  # Try the next matching file if there's an error
+                            if "Notes:" in peek:
+                                # Skip notes lines until we find the header
+                                lines = []
+                                for line in csv_file:
+                                    decoded = line.decode("utf-8", errors="ignore")
+                                    if "First Name" in decoded or "Email" in decoded:
+                                        lines.append(decoded)
+                                        break
+
+                                # Read the rest of the file
+                                for line in csv_file:
+                                    lines.append(line.decode("utf-8", errors="ignore"))
+
+                                # Create CSV from cleaned data
+                                from io import StringIO
+
+                                csv_data = StringIO("".join(lines))
+                                return pd.read_csv(csv_data), pattern
+                            else:
+                                # No notes, read directly
+                                return pd.read_csv(csv_file), pattern
+                    except Exception as e:
+                        print(f"Error reading file {file_name}: {e}")
+                        continue  # Try the next matching file if there's an error
 
             # If we've checked all files and found no match
             print(f"No file matching pattern '{patterns}' found")

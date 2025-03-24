@@ -1,7 +1,7 @@
 import port.youtube_extraction_functions as ef
 
 # defines which extraction functions are used and what titles are displayed
-# dict-keys are the exact filenames found in the YouTube export
+# patterns are the exact filenames found in the YouTube export
 
 extraction_dict = {
     "watch_history": {
