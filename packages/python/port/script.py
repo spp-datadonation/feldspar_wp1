@@ -389,7 +389,7 @@ def extract_data(filename, locale, platform):
         # Extract content based on platform
         if platform == "instagram":
             file_content, matched_pattern = extract_instagram_content_from_zip_folder(
-                filename, patterns
+                filename, file, patterns
             )
         elif platform == "linkedin":
             file_content, matched_pattern = extract_linkedin_content_from_zip_folder(
@@ -470,14 +470,133 @@ def extract_data(filename, locale, platform):
     yield f"{translatedMessage.translations[locale]}", 100, data
 
 
-def extract_instagram_content_from_zip_folder(zip_file_path, patterns):
-    """Extract JSON content from Instagram data export zip file based on pattern"""
+def extract_instagram_content_from_zip_folder(zip_file_path, file_key, patterns):
+    """
+    Extract JSON content from Instagram data export zip file based on the file key.
+
+    Parameters:
+    - zip_file_path: Path to the zip file
+    - file_key: The key from extraction_dict (e.g., 'messages', 'time_spent')
+    - patterns: File patterns to look for (used as fallback)
+
+    Special handling for:
+    1. Message files - combines all conversations
+    2. Time spent/sessions - loads posts_viewed and/or videos_watched
+    """
     try:
         with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
             # Get the list of file names in the zip file
             file_names = zip_ref.namelist()
 
-            # Look for matching files
+            # Special handling for messages
+            if file_key == "messages":
+                # This is for messages - we need to find all message files
+                all_messages_data = {"combined_messages": []}
+
+                # Find all message files in the ZIP (look in both inbox and message_requests folders)
+                message_files = []
+                for name in file_names:
+                    if name.endswith("message_1.json") and (
+                        "/inbox/" in name or "/message_requests/" in name
+                    ):
+                        message_files.append(name)
+
+                if not message_files:
+                    print("No message files found")
+                    return None, "message_1.json"
+
+                for message_file in message_files:
+                    try:
+                        with zip_ref.open(message_file) as json_file:
+                            json_content = json_file.read()
+                            conversation_data = json.loads(json_content)
+
+                            # Only process valid message files with participants
+                            if (
+                                "participants" in conversation_data
+                                and len(conversation_data["participants"]) > 1
+                                and "messages" in conversation_data
+                            ):
+                                # User is typically the second participant
+                                user_name = conversation_data["participants"][1]["name"]
+
+                                # Extract outgoing messages
+                                for message in conversation_data["messages"]:
+                                    if (
+                                        message.get("sender_name") == user_name
+                                        and "timestamp_ms" in message
+                                    ):
+                                        # Add to combined messages
+                                        all_messages_data["combined_messages"].append(
+                                            {
+                                                "timestamp_ms": message["timestamp_ms"],
+                                                "sender_name": "user1",  # Anonymize
+                                                "conversation": message_file.split("/")[
+                                                    -2
+                                                ],  # Get conversation ID
+                                            }
+                                        )
+                    except Exception as e:
+                        print(f"Error reading message file {message_file}: {e}")
+                        continue
+
+                return all_messages_data, "message_1.json"
+
+            # Special handling for time_spent and session_frequency which need posts_viewed and/or videos_watched
+            if file_key == "time_spent" or file_key == "session_frequency":
+                # We need to load either or both files
+                posts_viewed_data = None
+                videos_watched_data = None
+
+                # Find and load posts_viewed.json
+                for file_name in file_names:
+                    if file_name.endswith(".json") and "posts_viewed" in file_name:
+                        try:
+                            with zip_ref.open(file_name) as json_file:
+                                json_content = json_file.read()
+                                posts_viewed_data = json.loads(json_content)
+                                break
+                        except Exception as e:
+                            print(f"Error reading posts_viewed file {file_name}: {e}")
+
+                # Find and load videos_watched.json
+                for file_name in file_names:
+                    if file_name.endswith(".json") and "videos_watched" in file_name:
+                        try:
+                            with zip_ref.open(file_name) as json_file:
+                                json_content = json_file.read()
+                                videos_watched_data = json.loads(json_content)
+                                break
+                        except Exception as e:
+                            print(f"Error reading videos_watched file {file_name}: {e}")
+
+                # Combine the data for the extraction function - work with either or both files
+                if posts_viewed_data or videos_watched_data:
+                    combined_data = {
+                        "posts_viewed": posts_viewed_data or {},
+                        "videos_watched": videos_watched_data or {},
+                    }
+                    return combined_data, "combined_viewing_data"
+                else:
+                    print("Could not find posts_viewed or videos_watched files")
+                    return None, "combined_viewing_data"
+
+            # Regular handling for search history
+            if file_key == "search_history":
+                for file_name in file_names:
+                    if (
+                        file_name.endswith(".json")
+                        and "word_or_phrase_searches" in file_name
+                    ):
+                        try:
+                            with zip_ref.open(file_name) as json_file:
+                                json_content = json_file.read()
+                                data = json.loads(json_content)
+                                return data, "word_or_phrase_searches"
+                        except Exception as e:
+                            print(f"Error reading search file {file_name}: {e}")
+
+            # Regular handling for other files
             for pattern in patterns:
                 for file_name in file_names:
                     if file_name.endswith(".json") and pattern in file_name:
@@ -492,7 +611,7 @@ def extract_instagram_content_from_zip_folder(zip_file_path, patterns):
                             continue  # Try the next matching file if there's an error
 
             # If we've checked all files and found no match
-            print(f"No file matching pattern '{patterns}' found")
+            print(f"No file matching pattern '{patterns}' found for key '{file_key}'")
             return None, None
 
     except Exception as e:

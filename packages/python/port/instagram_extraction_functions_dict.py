@@ -4,6 +4,30 @@ import port.instagram_extraction_functions as ef
 # dict-keys are names of files or paths to that file if filename in path (like in personal_information/personal_information)
 
 extraction_dict = {
+    "time_spent": {
+        "extraction_function": ef.extract_time_spent,
+        "patterns": [
+            "posts_viewed",
+            "videos_watched",
+        ],  # This function requires both files
+        "title": {
+            "en": "How much time did you spend on Instagram? [seconds per day]",
+            "de": "Wie viel Zeit haben Sie auf Instagram verbracht? [Sekunden pro Tag]",
+            "nl": "Hoeveel tijd heb je op Instagram doorgebracht? [seconden per dag]",
+        },
+    },
+    "session_frequency": {
+        "extraction_function": ef.extract_session_frequency,
+        "patterns": [
+            "posts_viewed",
+            "videos_watched",
+        ],  # This function requires both files
+        "title": {
+            "en": "How many times did you open Instagram? [sessions per day]",
+            "de": "Wie oft haben Sie Instagram geöffnet? [Sitzungen pro Tag]",
+            "nl": "Hoe vaak heb je Instagram geopend? [sessies per dag]",
+        },
+    },
     "ads_seen": {
         "extraction_function": ef.extract_ads_seen,
         "patterns": ["ads_viewed"],
@@ -194,7 +218,7 @@ extraction_dict = {
         },
     },
     "followers_new": {
-        "extraction_function": ef.extract_followers_accepted,
+        "extraction_function": ef.extract_followers_new,
         "patterns": ["followers_1"],
         "title": {
             "en": "How often did you gain new followers? [per day]",
@@ -202,22 +226,22 @@ extraction_dict = {
             "nl": "Hoe vaak heb je nieuwe volgers gekregen? [per dag]",
         },
     },
-    "??? MESSAGES ???": {
-        "extraction_function": ef.extract_contact_syncing,
-        "patterns": ["XXX"],
+    "search_history": {
+        "extraction_function": ef.extract_search_history,
+        "patterns": ["word_or_phrase_searches"],
         "title": {
-            "en": "",
-            "de": "Wie oft haben Sie mit anderen Menschen auf Instagram geschrieben? [pro Tag]",
-            "nl": "",
+            "en": "How often have you searched on Instagram? [per day]",
+            "de": "Wie oft haben Sie nach etwas gesucht? [pro Tag]",
+            "nl": "Hoe vaak heb je gezocht op Instagram? [per dag]",
         },
     },
-    "??? SEARCH HISTORY ???": {
-        "extraction_function": ef.extract_contact_syncing,
-        "patterns": ["XXX"],
+    "messages": {
+        "extraction_function": ef.extract_messages,
+        "patterns": ["message_1.json"],
         "title": {
-            "en": "",
-            "de": "Wie oft haben Sie nach etwas gesucht? [pro Tag]",
-            "nl": "",
+            "en": "How often have you sent messages on Instagram? [per day]",
+            "de": "Wie oft haben Sie mit anderen Menschen auf Instagram geschrieben? [pro Tag]",
+            "nl": "Hoe vaak heb je berichten gestuurd op Instagram? [per dag]",
         },
     },
     "contact_syncing": {

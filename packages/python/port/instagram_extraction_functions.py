@@ -82,6 +82,225 @@ def translate(value, locale, dummy_decider=None):
 ############################
 
 
+def extract_time_spent(combined_data, locale):
+    """
+    Calculate the total time spent on Instagram per day.
+    A session continues if the time between views is less than 60 seconds.
+    Sessions reset at midnight.
+
+    Works with either posts_viewed, videos_watched, or both.
+    """
+
+    tl_date = translate("date", locale)
+    tl_value = translate(
+        {
+            "en": "Time spent (seconds)",
+            "de": "Verbrachte Zeit (Sekunden)",
+            "nl": "Bestede tijd (seconden)",
+        },
+        locale,
+    )
+
+    # Constants
+    SESSION_BREAK_THRESHOLD = 60  # seconds
+    DEFAULT_ACTIVITY_TIME = 30  # seconds for the last activity in a session
+
+    # Extract data from the combined format
+    posts_viewed_json = combined_data.get("posts_viewed", {})
+    videos_watched_json = combined_data.get("videos_watched", {})
+
+    # Get timestamps from post views (if available)
+    post_timestamps = []
+    if posts_viewed_json:
+        post_timestamps = [
+            entry["string_map_data"]["Time"]["timestamp"]
+            for entry in posts_viewed_json.get("impressions_history_posts_seen", [])
+            if "Time" in entry["string_map_data"]
+        ]
+
+    # Get timestamps from video views (if available)
+    video_timestamps = []
+    if videos_watched_json:
+        video_timestamps = [
+            entry["string_map_data"]["Time"]["timestamp"]
+            for entry in videos_watched_json.get(
+                "impressions_history_videos_watched", []
+            )
+            if "Time" in entry["string_map_data"]
+        ]
+
+    # Combine and sort all timestamps
+    all_timestamps = sorted(post_timestamps + video_timestamps)
+
+    if not all_timestamps:
+        return pd.DataFrame(columns=[tl_date, tl_value])
+
+    # Calculate time spent per day
+    from datetime import datetime
+
+    daily_time_spent = {}
+    session_start_time = None
+    last_time = None
+    current_day = None
+
+    for ts in all_timestamps:
+        current_time = datetime.fromtimestamp(ts)
+        new_day = current_time.date()
+
+        # Initialize the day in our dictionary if needed
+        if new_day not in daily_time_spent:
+            daily_time_spent[new_day] = 0
+
+        # Check if we're starting a new session
+        start_new_session = False
+
+        if last_time is None:
+            # First activity
+            start_new_session = True
+        elif new_day != current_day:
+            # Day changed, end previous session and start new one
+            if session_start_time:
+                session_time = (
+                    last_time - session_start_time
+                ).total_seconds() + DEFAULT_ACTIVITY_TIME
+                daily_time_spent[current_day] += session_time
+            start_new_session = True
+        elif (current_time - last_time).total_seconds() > SESSION_BREAK_THRESHOLD:
+            # More than threshold time since last activity, end session and start new
+            if session_start_time:
+                session_time = (
+                    last_time - session_start_time
+                ).total_seconds() + DEFAULT_ACTIVITY_TIME
+                daily_time_spent[current_day] += session_time
+            start_new_session = True
+
+        if start_new_session:
+            session_start_time = current_time
+
+        # Update for the next iteration
+        last_time = current_time
+        current_day = new_day
+
+    # Handle the last session
+    if session_start_time and last_time:
+        session_time = (
+            last_time - session_start_time
+        ).total_seconds() + DEFAULT_ACTIVITY_TIME
+        daily_time_spent[current_day] += session_time
+
+    # Convert to DataFrame
+    dates = [
+        epoch_to_date(int(datetime(d.year, d.month, d.day).timestamp()))
+        for d in daily_time_spent.keys()
+    ]
+    times = [round(t) for t in daily_time_spent.values()]  # Round to whole seconds
+
+    result_df = pd.DataFrame({tl_date: dates, tl_value: times})
+    result_df = result_df.sort_values(by=tl_date).reset_index(drop=True)
+
+    return result_df
+
+
+def extract_session_frequency(combined_data, locale):
+    """
+    Calculate how many Instagram sessions a user had per day.
+    A session is defined as a sequence of activities with less than 60 seconds between them.
+    Sessions reset at midnight.
+
+    Works with either posts_viewed, videos_watched, or both.
+    """
+
+    tl_date = translate("date", locale)
+    tl_value = translate(
+        {
+            "en": "Number of sessions",
+            "de": "Anzahl der Sitzungen",
+            "nl": "Aantal sessies",
+        },
+        locale,
+    )
+
+    # Constants
+    SESSION_BREAK_THRESHOLD = 60  # seconds
+
+    # Extract data from the combined format
+    posts_viewed_json = combined_data.get("posts_viewed", {})
+    videos_watched_json = combined_data.get("videos_watched", {})
+
+    # Get timestamps from post views (if available)
+    post_timestamps = []
+    if posts_viewed_json:
+        post_timestamps = [
+            entry["string_map_data"]["Time"]["timestamp"]
+            for entry in posts_viewed_json.get("impressions_history_posts_seen", [])
+            if "Time" in entry["string_map_data"]
+        ]
+
+    # Get timestamps from video views (if available)
+    video_timestamps = []
+    if videos_watched_json:
+        video_timestamps = [
+            entry["string_map_data"]["Time"]["timestamp"]
+            for entry in videos_watched_json.get(
+                "impressions_history_videos_watched", []
+            )
+            if "Time" in entry["string_map_data"]
+        ]
+
+    # Combine and sort all timestamps
+    all_timestamps = sorted(post_timestamps + video_timestamps)
+
+    if not all_timestamps:
+        return pd.DataFrame(columns=[tl_date, tl_value])
+
+    # Count sessions per day
+    from datetime import datetime
+
+    daily_sessions = {}
+    last_time = None
+    current_day = None
+
+    for ts in all_timestamps:
+        current_time = datetime.fromtimestamp(ts)
+        new_day = current_time.date()
+
+        # Initialize the day in our dictionary if needed
+        if new_day not in daily_sessions:
+            daily_sessions[new_day] = 0
+
+        # Check if we're starting a new session
+        start_new_session = False
+
+        if last_time is None:
+            # First activity
+            start_new_session = True
+        elif new_day != current_day:
+            # Day changed, start new session
+            start_new_session = True
+        elif (current_time - last_time).total_seconds() > SESSION_BREAK_THRESHOLD:
+            # More than threshold time since last activity
+            start_new_session = True
+
+        if start_new_session:
+            daily_sessions[new_day] += 1
+
+        # Update for the next iteration
+        last_time = current_time
+        current_day = new_day
+
+    # Convert to DataFrame
+    dates = [
+        epoch_to_date(int(datetime(d.year, d.month, d.day).timestamp()))
+        for d in daily_sessions.keys()
+    ]
+    sessions = list(daily_sessions.values())
+
+    result_df = pd.DataFrame({tl_date: dates, tl_value: sessions})
+    result_df = result_df.sort_values(by=tl_date).reset_index(drop=True)
+
+    return result_df
+
+
 def extract_ads_seen(ads_seen_json, locale):
     """extract ads_information/ads_and_topics/ads_viewed -> list of authors per day"""
 
@@ -669,7 +888,7 @@ def extract_reels_created(reels_created_json, locale):
     return aggregated_df.reset_index(name=tl_value)
 
 
-def extract_followers_accepted(followers_accepted_json, locale):
+def extract_followers_new(followers_new_json, locale):
     """extract connections/followers_and_following/followers_1 -> count per day"""
 
     tl_date = translate("date", locale)
@@ -683,14 +902,12 @@ def extract_followers_accepted(followers_accepted_json, locale):
     )
 
     # file can just be dict and not list if only one follower
-    if isinstance(followers_accepted_json, dict):
-        dates = [
-            epoch_to_date(followers_accepted_json["string_list_data"][0]["timestamp"])
-        ]
+    if isinstance(followers_new_json, dict):
+        dates = [epoch_to_date(followers_new_json["string_list_data"][0]["timestamp"])]
     else:
         dates = [
             epoch_to_date(t["string_list_data"][0]["timestamp"])
-            for t in followers_accepted_json
+            for t in followers_new_json
         ]
 
     dates_df = pd.DataFrame(dates, columns=[tl_date])  # convert to df
@@ -700,6 +917,98 @@ def extract_followers_accepted(followers_accepted_json, locale):
     ].size()  # count number of rows per day
 
     return aggregated_df.reset_index(name=tl_value)
+
+
+def extract_search_history(search_history_json, locale):
+    """extract logged_information/recent_searches/word_or_phrase_searches -> count per day"""
+
+    tl_date = translate("date", locale)
+    tl_value = translate(
+        {
+            "en": "Count of searches",
+            "de": "Anzahl der Suchen",
+            "nl": "Aantal zoekopdrachten",
+        },
+        locale,
+    )
+
+    # Extract timestamps
+    timestamps = []
+    for search in search_history_json.get("searches_keyword", []):
+        timestamp_key = None
+
+        # Find the timestamp key
+        for key in search["string_map_data"]:
+            if "Datum" in key or "Date" in key or "Time" in key:  # language sensitive
+                timestamp_key = key
+                break
+
+        if timestamp_key and "timestamp" in search["string_map_data"][timestamp_key]:
+            timestamps.append(search["string_map_data"][timestamp_key]["timestamp"])
+
+    # Convert timestamps to dates
+    dates = [epoch_to_date(t) for t in timestamps]
+
+    # Create DataFrame
+    if dates:
+        search_df = pd.DataFrame(dates, columns=[tl_date])
+
+        # Count searches per day
+        aggregated_df = (
+            search_df.groupby([tl_date])[tl_date].size().reset_index(name=tl_value)
+        )
+
+        return aggregated_df
+
+    # Return empty DataFrame if no searches found
+    return pd.DataFrame(columns=[tl_date, tl_value])
+
+
+def extract_messages(combined_messages_data, locale):
+    """
+    Extract message counts per day from all Instagram conversations.
+
+    This function processes the combined messages data structure that contains
+    messages from all conversations in the Instagram data export.
+    """
+
+    tl_date = translate("date", locale)
+    tl_value = translate(
+        {
+            "en": "Count of outgoing messages",
+            "de": "Anzahl der gesendeten Nachrichten",
+            "nl": "Aantal verzonden berichten",
+        },
+        locale,
+    )
+
+    # Process all messages
+    message_counts = {}
+
+    # Check if we have the combined messages data structure
+    if combined_messages_data and "combined_messages" in combined_messages_data:
+        for message in combined_messages_data["combined_messages"]:
+            # Convert timestamp (milliseconds) to date
+            date = epoch_to_date(
+                message["timestamp_ms"] // 1000
+            )  # Divide by 1000 to convert ms to seconds
+
+            # Increment count for this date
+            if date in message_counts:
+                message_counts[date] += 1
+            else:
+                message_counts[date] = 1
+
+    # Convert to DataFrame
+    if message_counts:
+        dates = list(message_counts.keys())
+        counts = list(message_counts.values())
+        result_df = pd.DataFrame({tl_date: dates, tl_value: counts})
+        result_df = result_df.sort_values(by=tl_date).reset_index(drop=True)
+        return result_df
+
+    # Return empty DataFrame if no messages found
+    return pd.DataFrame(columns=[tl_date, tl_value])
 
 
 def extract_contact_syncing(contact_syncing_json, locale):
