@@ -162,6 +162,56 @@ def extract_connections(connections_csv, locale):
     return pd.DataFrame(results)
 
 
+def extract_comments(comments_csv, locale):
+    """Extract LinkedIn comments data and count per day"""
+
+    tl_date = translate("date", locale)
+    tl_count = translate(
+        {
+            "en": "Number of comments",
+            "de": "Anzahl der Kommentare",
+            "nl": "Aantal reacties",
+        },
+        locale,
+    )
+
+    # Find the date column
+    date_column = None
+    for col in comments_csv.columns:
+        if "Date" in col or "Zeit" in col or "Datum" in col:
+            date_column = col
+            break
+
+    if not date_column and len(comments_csv.columns) >= 1:
+        # If we couldn't find by name, assume it's the first column
+        date_column = comments_csv.columns[0]
+
+    if not date_column:
+        return pd.DataFrame(
+            {
+                tl_date: ["N/A"],
+                tl_count: [f"Total comments: {len(comments_csv)}"],
+            }
+        )
+
+    # Process comments data
+    # Create a copy to avoid SettingWithCopyWarning
+    processed_df = comments_csv.copy()
+
+    # Convert dates to a standard format
+    processed_df["formatted_date"] = pd.to_datetime(
+        processed_df[date_column], errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
+
+    # Count comments per day
+    daily_counts = (
+        processed_df.groupby("formatted_date").size().reset_index(name=tl_count)
+    )
+    daily_counts.rename(columns={"formatted_date": tl_date}, inplace=True)
+
+    return daily_counts
+
+
 def extract_reactions(reactions_csv, locale):
     """Extract LinkedIn reactions data (likes, celebrates, supports, etc.)"""
 
@@ -220,6 +270,56 @@ def extract_reactions(reactions_csv, locale):
     )
 
     return grouped_reactions
+
+
+def extract_shares(shares_csv, locale):
+    """Extract LinkedIn shares data and count per day"""
+
+    tl_date = translate("date", locale)
+    tl_count = translate(
+        {
+            "en": "Number of shares",
+            "de": "Anzahl der Shares",
+            "nl": "Aantal shares",
+        },
+        locale,
+    )
+
+    # Find the date column
+    date_column = None
+    for col in shares_csv.columns:
+        if "Date" in col or "Zeit" in col or "Datum" in col:
+            date_column = col
+            break
+
+    if not date_column and len(shares_csv.columns) >= 1:
+        # If we couldn't find by name, assume it's the first column
+        date_column = shares_csv.columns[0]
+
+    if not date_column:
+        return pd.DataFrame(
+            {
+                tl_date: ["N/A"],
+                tl_count: [f"Total shares: {len(shares_csv)}"],
+            }
+        )
+
+    # Process shares data
+    # Create a copy to avoid SettingWithCopyWarning
+    processed_df = shares_csv.copy()
+
+    # Convert dates to a standard format
+    processed_df["formatted_date"] = pd.to_datetime(
+        processed_df[date_column], errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
+
+    # Count shares per day
+    daily_counts = (
+        processed_df.groupby("formatted_date").size().reset_index(name=tl_count)
+    )
+    daily_counts.rename(columns={"formatted_date": tl_date}, inplace=True)
+
+    return daily_counts
 
 
 def extract_messages(messages_csv, locale):
@@ -408,6 +508,78 @@ def extract_interests(ad_targeting_csv, locale):
     result_df = pd.DataFrame({tl_interest: unique_interests})
 
     return result_df
+
+
+def extract_member_follows(member_follows_csv, locale):
+    """Extract LinkedIn member follows data and count per day, differentiating follows/unfollows"""
+
+    tl_date = translate("date", locale)
+    tl_follows = translate(
+        {
+            "en": "Follows",
+            "de": "Folgt",
+            "nl": "Volgt",
+        },
+        locale,
+    )
+    tl_unfollows = translate(
+        {
+            "en": "Unfollows",
+            "de": "Folgt nicht mehr",
+            "nl": "Volgt niet meer",
+        },
+        locale,
+    )
+
+    # Find the date and status columns
+    date_column = None
+    status_column = None
+
+    for col in member_follows_csv.columns:
+        if "Date" in col or "Zeit" in col or "Datum" in col:
+            date_column = col
+        if "Status" in col:
+            status_column = col
+
+    if not date_column and len(member_follows_csv.columns) >= 1:
+        # If we couldn't find by name, assume it's the first column
+        date_column = member_follows_csv.columns[0]
+
+    if not status_column and len(member_follows_csv.columns) >= 2:
+        # If we couldn't find by name, assume it's the second column
+        status_column = member_follows_csv.columns[1]
+
+    if not date_column or not status_column:
+        return pd.DataFrame(
+            {
+                tl_date: ["N/A"],
+                tl_follows: ["N/A"],
+                tl_unfollows: ["Required columns not found"],
+            }
+        )
+
+    # Process member follows data
+    # Create a copy to avoid SettingWithCopyWarning
+    processed_df = member_follows_csv.copy()
+
+    # Convert dates to a standard format
+    processed_df["formatted_date"] = pd.to_datetime(
+        processed_df[date_column], errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
+
+    # Create status categories
+    processed_df["is_active"] = (
+        processed_df[status_column].str.lower().str.contains("active")
+    )
+
+    # Group by date and count follows/unfollows
+    result = []
+    for date, group in processed_df.groupby("formatted_date"):
+        follows = sum(group["is_active"])
+
+        result.append({tl_date: date, tl_follows: follows})
+
+    return pd.DataFrame(result)
 
 
 def extract_profile(profile_csv, locale):

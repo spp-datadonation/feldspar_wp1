@@ -13,6 +13,15 @@ extraction_dict = {
             "nl": "Hoeveel connecties heb je per dag gemaakt en welke informatie hebben ze?",
         },
     },
+    "comments": {
+        "extraction_function": ef.extract_comments,
+        "patterns": ["Comments.csv"],
+        "title": {
+            "en": "How many comments have you made per day?",
+            "de": "Wie viele Kommentare haben Sie pro Tag geschrieben?",
+            "nl": "Hoeveel reacties heeft u per dag geplaatst?",
+        },
+    },
     "reactions": {
         "extraction_function": ef.extract_reactions,
         "patterns": ["Reactions.csv"],
@@ -20,6 +29,15 @@ extraction_dict = {
             "en": "What types of reactions have you given and how often per day?",
             "de": "Welche Arten von Reaktionen haben Sie gegeben und wie oft pro Tag?",
             "nl": "Welke soorten reacties heb je gegeven en hoe vaak per dag?",
+        },
+    },
+    "shares": {
+        "extraction_function": ef.extract_shares,
+        "patterns": ["Shares.csv"],
+        "title": {
+            "en": "How many posts have you shared per day?",
+            "de": "Wie viele Beiträge haben Sie pro Tag geteilt?",
+            "nl": "Hoeveel berichten heeft u per dag gedeeld?",
         },
     },
     "messages": {
@@ -47,6 +65,15 @@ extraction_dict = {
             "en": "What interests has LinkedIn inferred about you?",
             "de": "Welche Interessen hat LinkedIn über Sie abgeleitet?",
             "nl": "Welke interesses heeft LinkedIn over je afgeleid?",
+        },
+    },
+    "member_follows": {
+        "extraction_function": ef.extract_member_follows,
+        "patterns": ["Member_Follows.csv"],
+        "title": {
+            "en": "How many LinkedIn members have you followed/unfollowed per day?",
+            "de": "Wie vielen LinkedIn-Mitgliedern sind Sie pro Tag gefolgt bzw. nicht mehr gefolgt?",
+            "nl": "Hoeveel LinkedIn-leden bent u per dag gaan volgen/ontvolgen?",
         },
     },
     "profile": {

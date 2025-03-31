@@ -669,20 +669,96 @@ def extract_linkedin_content_from_zip_folder(zip_file_path, patterns):
                                 for line in csv_file:
                                     lines.append(line.decode("utf-8", errors="ignore"))
 
-                                # Create CSV from cleaned data
-                                from io import StringIO
-
-                                csv_data = StringIO("".join(lines))
-                                return pd.read_csv(csv_data), pattern
+                                content = "".join(lines)
                             else:
-                                # No notes, read directly
-                                return pd.read_csv(csv_file), pattern
+                                # No notes, read the whole file
+                                content = csv_file.read().decode(
+                                    "utf-8", errors="ignore"
+                                )
+
+                        # Now that we have the content, try multiple approaches to read it
+                        # Approach 1: Try with standard pandas read_csv with error handling
+                        try:
+                            from io import StringIO
+
+                            df = pd.read_csv(
+                                StringIO(content),
+                                on_bad_lines="skip",  # Skip rows with too many fields
+                                dtype=str,  # Read everything as strings initially
+                                encoding_errors="ignore",  # Ignore encoding errors
+                            )
+                            print(
+                                f"Successfully read {file_name} with standard pandas read_csv, shape: {df.shape}"
+                            )
+                            return df, pattern
+                        except Exception as e1:
+                            print(f"Standard pandas read_csv failed: {e1}")
+
+                        # Approach 2: Try with csv.reader to manually parse rows
+                        try:
+                            from io import StringIO
+
+                            # First, determine the dialect and separator
+                            dialect = csv.Sniffer().sniff(content[:1000])
+
+                            # Read the header row
+                            reader = csv.reader(StringIO(content), dialect)
+                            header = next(reader)
+
+                            # Read data rows, handle inconsistent column counts
+                            rows = []
+                            for row in reader:
+                                # If row is too short, pad with None values
+                                if len(row) < len(header):
+                                    row = row + [None] * (len(header) - len(row))
+                                # If row is too long, truncate to match header
+                                elif len(row) > len(header):
+                                    row = row[: len(header)]
+                                rows.append(row)
+
+                            df = pd.DataFrame(rows, columns=header)
+                            print(
+                                f"Successfully read {file_name} with csv.reader approach, shape: {df.shape}"
+                            )
+                            return df, pattern
+                        except Exception as e2:
+                            print(f"csv.reader approach failed: {e2}")
+
+                        # Approach 3: Last resort - try with low_memory=False and custom separator
+                        try:
+                            # Try different separators
+                            for sep in [",", "\t", ";"]:
+                                try:
+                                    df = pd.read_csv(
+                                        StringIO(content),
+                                        sep=sep,
+                                        engine="python",  # More flexible but slower engine
+                                        on_bad_lines="skip",
+                                        low_memory=False,
+                                        encoding_errors="ignore",
+                                    )
+                                    # If we got at least some columns and rows, consider it successful
+                                    if df.shape[0] > 0 and df.shape[1] > 0:
+                                        print(
+                                            f"Successfully read {file_name} with separator '{sep}', shape: {df.shape}"
+                                        )
+                                        return df, pattern
+                                except Exception as e:
+                                    continue
+                        except Exception as e3:
+                            print(f"All pandas approaches failed: {e3}")
+
+                        # If we got here, all approaches failed
+                        print(f"Unable to parse {file_name} with any method")
+
                     except Exception as e:
-                        print(f"Error reading file {file_name}: {e}")
+                        print(f"Error processing file {file_name}: {e}")
                         continue  # Try the next matching file if there's an error
 
             # If we've checked all files and found no match
-            print(f"No file matching pattern '{patterns}' found")
+            print(
+                f"No file matching pattern '{patterns}' found or all matches failed parsing."
+            )
             return None, None
 
     except Exception as e:
