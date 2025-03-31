@@ -963,7 +963,7 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
                 # Directly add multi-row dataframes to the table list
                 table = props.PropsUIPromptConsentFormTable(
                     file,
-                    props.Translatable({"en": file, "de": file, "nl": file}),
+                    props.Translatable(description["title"]),
                     props.Translatable(description["title"]),
                     df,
                 )
@@ -993,33 +993,34 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
             table_list.append(table)
 
     blocks = [
-            props.PropsUIPromptConsentFormTable(
-                table.id,
-                table.title,
-                table.description,
-                table.data_frame,
-            )
-            for table in table_list
-        ]
+        props.PropsUIPromptConsentFormTable(
+            table.id,
+            table.title,
+            table.description,
+            table.data_frame,
+        )
+        for table in table_list
+    ]
     # Create donation buttons
     blocks.append(
         props.PropsUIDataSubmissionButtons(
-                    donate_question=props.Translatable(
-                         {
-                            "en": f"Do you want to donate the above {platform_names.get(platform, platform)} data?",
-                            "de": f"Möchten Sie die obigen {platform_names.get(platform, platform)}-Daten spenden?",
-                            "nl": f"Wilt u de bovenstaande {platform_names.get(platform, platform)} gegevens doneren?",
-                        }
-                    ),
-                    donate_button=props.Translatable(
-                        {
-                            "en": "Yes, donate",
-                            "de": "Ja, spenden",
-                            "nl": "Ja, doneren",
-                        }
-                    ),
-                ),
+            donate_question=props.Translatable(
+                {
+                    "en": f"Do you want to donate the above {platform_names.get(platform, platform)} data?",
+                    "de": f"Möchten Sie die obigen {platform_names.get(platform, platform)}-Daten spenden?",
+                    "nl": f"Wilt u de bovenstaande {platform_names.get(platform, platform)} gegevens doneren?",
+                }
+            ),
+            donate_button=props.Translatable(
+                {
+                    "en": "Yes, donate",
+                    "de": "Ja, spenden",
+                    "nl": "Ja, doneren",
+                }
+            ),
+        ),
     )
+
     return blocks
 
 
