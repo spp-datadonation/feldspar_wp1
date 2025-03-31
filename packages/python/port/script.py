@@ -992,35 +992,35 @@ def prompt_consent(data, meta_data, locale, platform="Instagram"):
             )
             table_list.append(table)
 
+    blocks = [
+            props.PropsUIPromptConsentFormTable(
+                table.id,
+                table.title,
+                table.description,
+                table.data_frame,
+            )
+            for table in table_list
+        ]
     # Create donation buttons
-    donation_question = props.Translatable(
-        {
-            "en": f"Do you want to donate the above {platform_names.get(platform, platform)} data?",
-            "de": f"Möchten Sie die obigen {platform_names.get(platform, platform)}-Daten spenden?",
-            "nl": f"Wilt u de bovenstaande {platform_names.get(platform, platform)} gegevens doneren?",
-        }
+    blocks.append(
+        props.PropsUIDataSubmissionButtons(
+                    donate_question=props.Translatable(
+                         {
+                            "en": f"Do you want to donate the above {platform_names.get(platform, platform)} data?",
+                            "de": f"Möchten Sie die obigen {platform_names.get(platform, platform)}-Daten spenden?",
+                            "nl": f"Wilt u de bovenstaande {platform_names.get(platform, platform)} gegevens doneren?",
+                        }
+                    ),
+                    donate_button=props.Translatable(
+                        {
+                            "en": "Yes, donate",
+                            "de": "Ja, spenden",
+                            "nl": "Ja, doneren",
+                        }
+                    ),
+                ),
     )
-
-    donate_button = props.Translatable(
-        {
-            "en": "Yes, donate",
-            "de": "Ja, spenden",
-            "nl": "Ja, doneren",
-        }
-    )
-
-    return props.PropsUIPromptConsentForm(
-        table_list,
-        props.Translatable(
-            {
-                "en": f"Please review the extracted {platform_names.get(platform, platform)} data below before donating.",
-                "de": f"Bitte überprüfen Sie die extrahierten {platform_names.get(platform, platform)}-Daten unten, bevor Sie spenden.",
-                "nl": f"Bekijk de geëxtraheerde {platform_names.get(platform, platform)} gegevens hieronder voordat u doneert.",
-            }
-        ),
-        donation_question,
-        donate_button,
-    )
+    return blocks
 
 
 # pass on user decision to donate or decline donation
