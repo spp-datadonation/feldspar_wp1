@@ -96,11 +96,20 @@ extraction_dict = {
     },
     "device_usage": {
         "extraction_function": ef.extract_device_usage,
-        "patterns": ["Security Challenges.csv"],
+        "patterns": ["Logins.csv"],
         "title": {
             "en": "What user agents have you used to access LinkedIn?",
             "de": "Mit welchen User Agents haben Sie auf LinkedIn zugegriffen?",
             "nl": "Welke user agents heb je gebruikt om toegang te krijgen tot LinkedIn?",
+        },
+    },
+    "saved_jobs": {
+        "extraction_function": ef.extract_saved_jobs,
+        "patterns": ["Saved Jobs.csv"],
+        "title": {
+            "en": "How many jobs have you saved per day?",
+            "de": "Wie viele Jobs haben Sie pro Tag gespeichert?",
+            "nl": "Hoeveel vacatures heb je per dag opgeslagen?",
         },
     },
 }

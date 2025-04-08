@@ -762,8 +762,8 @@ def extract_positions(positions_csv, locale):
     return result
 
 
-def extract_device_usage(security_challenges_csv, locale):
-    """Extract device usage information from security challenges data"""
+def extract_device_usage(device_csv, locale):
+    """Extract device usage information from security challenges or logins data"""
 
     tl_date = translate("date", locale)
     tl_user_agent = translate(
@@ -774,63 +774,125 @@ def extract_device_usage(security_challenges_csv, locale):
         },
         locale,
     )
-    tl_country = translate(
+
+    # Check if the file is a login file or security challenges file
+    is_login_file = False
+    for col in device_csv.columns:
+        if "Login Date" in col or "Login Type" in col:
+            is_login_file = True
+            break
+
+    date_column = None
+    user_agent_column = None
+
+    # For login files
+    if is_login_file:
+        for col in device_csv.columns:
+            if "Login Date" in col:
+                date_column = col
+            if "User Agent" in col:
+                user_agent_column = col
+    # For security challenges
+    else:
+        for col in device_csv.columns:
+            if "Challenge Date" in col or "Datum" in col:
+                date_column = col
+            if "User Agent" in col or "Agent" in col:
+                user_agent_column = col
+
+    # If columns not found, try positional guessing
+    if not date_column and len(device_csv.columns) > 0:
+        date_column = device_csv.columns[0]  # Usually first column
+
+    if not user_agent_column:
+        # Try to find it by looking at the data
+        for col in device_csv.columns:
+            if len(device_csv) > 0:
+                sample_val = device_csv[col].iloc[0] if not device_csv.empty else ""
+                if isinstance(sample_val, str) and (
+                    "Mozilla" in sample_val or "AppleWebKit" in sample_val
+                ):
+                    user_agent_column = col
+                    break
+
+        # Last resort - typical position
+        if not user_agent_column and len(device_csv.columns) >= 3:
+            user_agent_column = device_csv.columns[2]
+
+    results = []
+    for _, row in device_csv.iterrows():
+        # Get the date
+        date_str = "Unknown Date"
+        if date_column:
+            date_str = str(row[date_column])
+            date_parts = date_str.split()
+            if len(date_parts) >= 3:
+                date_str = f"{date_parts[1]} {date_parts[2]}, {date_parts[-1]}"  # Format: "Apr 29, 2023"
+
+        # Get user agent
+        user_agent = "Unknown"
+        if user_agent_column and pd.notna(row[user_agent_column]):
+            user_agent = row[user_agent_column]
+        else:
+            # Try to find it in any column
+            for col, value in row.items():
+                if isinstance(value, str) and (
+                    "Mozilla" in value or "AppleWebKit" in value
+                ):
+                    user_agent = value
+                    break
+
+        results.append({tl_date: date_str, tl_user_agent: user_agent})
+
+    return pd.DataFrame(results)
+
+
+def extract_saved_jobs(saved_jobs_csv, locale):
+    """Extract LinkedIn saved jobs data and count per day"""
+
+    tl_date = translate("date", locale)
+    tl_value = translate(
         {
-            "en": "Country",
-            "de": "Land",
-            "nl": "Land",
+            "en": "Number of saved jobs",
+            "de": "Anzahl der gespeicherten Jobs",
+            "nl": "Aantal opgeslagen vacatures",
         },
         locale,
     )
 
-    # This is a special case as the CSV may have data spread across multiple columns
-    # Find the important columns
-    challenge_date_col = None
-    user_agent_col = None
-    country_col = None
+    # Find the date column - could be "Saved Date" or a localized version
+    date_column = None
+    for col in saved_jobs_csv.columns:
+        if "Date" in col or "Datum" in col:
+            date_column = col
+            break
 
-    for col in security_challenges_csv.columns:
-        if "Challenge Date" in col or "Datum" in col:
-            challenge_date_col = col
-        if "User Agent" in col or "Agent" in col:
-            user_agent_col = col
-        if "Country" in col or "Land" in col:
-            country_col = col
+    if not date_column and len(saved_jobs_csv.columns) >= 1:
+        # If we couldn't find by name, assume it's the first column
+        date_column = saved_jobs_csv.columns[0]
 
-    # If we couldn't find the columns by name, try to use positional logic
-    if not challenge_date_col and len(security_challenges_csv.columns) > 0:
-        challenge_date_col = security_challenges_csv.columns[0]  # Usually first column
-
-    if not country_col and len(security_challenges_csv.columns) > 3:
-        country_col = security_challenges_csv.columns[3]  # Often the 4th column
-
-    results = []
-    for _, row in security_challenges_csv.iterrows():
-        # Get the date (format: "Sat Apr 29 16:38:10 UTC 2023" or similar)
-        if challenge_date_col:
-            date_str = str(row[challenge_date_col])
-            date_parts = date_str.split()
-            if len(date_parts) >= 3:
-                date_str = f"{date_parts[1]} {date_parts[2]}, {date_parts[-1]}"
-        else:
-            date_str = "Unknown Date"
-
-        # Get country
-        country = "Unknown"
-        if country_col and pd.notna(row[country_col]):
-            country = row[country_col]
-
-        # Try to find the user agent by looking through all cells in the row
-        user_agent = "Unknown"
-        for col, value in row.items():
-            if isinstance(value, str) and (
-                "Mozilla" in value or "AppleWebKit" in value
-            ):
-                user_agent = value
-                break
-
-        results.append(
-            {tl_date: date_str, tl_user_agent: user_agent, tl_country: country}
+    if not date_column:
+        return pd.DataFrame(
+            {
+                tl_date: ["N/A"],
+                tl_value: [f"Total saved jobs: {len(saved_jobs_csv)}"],
+            }
         )
 
-    return pd.DataFrame(results)
+    # Process saved jobs data
+    # Create a copy to avoid SettingWithCopyWarning
+    processed_df = saved_jobs_csv.copy()
+
+    # Convert dates to a standard format
+    # Date format in example: 8/22/24, 10:54 PM
+    processed_df["formatted_date"] = pd.to_datetime(
+        processed_df[date_column], errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
+
+    # Count saved jobs per day
+    daily_counts = (
+        processed_df.groupby("formatted_date").size().reset_index(name=tl_value)
+    )
+    daily_counts.rename(columns={"formatted_date": tl_date}, inplace=True)
+
+    return daily_counts
